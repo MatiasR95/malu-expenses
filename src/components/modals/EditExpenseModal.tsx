@@ -1,8 +1,11 @@
-﻿import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
+import { Trash2, Check } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
-import { Expense, UserId, PaymentMethod } from '../../types/finance';
-import { X, Trash2, Check, Tag } from 'lucide-react';
+import { Expense, PaymentMethod, UserId } from '../../types/finance';
+import { Sheet } from '../common/Sheet';
+import { CategoryIcon } from '../common/CategoryIcon';
+import { EASE_OUT, PRESS, PRESS_HARD } from '../../lib/motion';
 
 interface EditExpenseModalProps {
   expense: Expense | null;
@@ -10,207 +13,201 @@ interface EditExpenseModalProps {
   onClose: () => void;
 }
 
-export const EditExpenseModal: React.FC<EditExpenseModalProps> = ({
-  expense,
-  isOpen,
-  onClose,
-}) => {
+const FIELD =
+  'w-full h-12 bg-[var(--color-paper-hi)] border-2 border-[var(--color-ink)] px-3 text-sm text-[var(--color-ink)] outline-none focus:block-shadow-sm transition-shadow';
+const LABEL = 'text-[10px] font-mono uppercase tracking-[0.2em] text-[var(--color-ink-3)] block mb-1.5';
+
+export const EditExpenseModal: React.FC<EditExpenseModalProps> = ({ expense, isOpen, onClose }) => {
   const { categories, updateExpense, deleteExpense } = useFinance();
 
-  const [amount, setAmount] = useState<number>(0);
-  const [categoryId, setCategoryId] = useState<string>('');
+  const [amount, setAmount] = useState(0);
+  const [categoryId, setCategoryId] = useState('');
   const [loggedBy, setLoggedBy] = useState<UserId>('mati');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('debito');
-  const [note, setNote] = useState<string>('');
-  const [date, setDate] = useState<string>('');
+  const [note, setNote] = useState('');
+  const [date, setDate] = useState('');
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   useEffect(() => {
-    if (expense) {
-      setAmount(expense.amount);
-      setCategoryId(expense.categoryId);
-      setLoggedBy(expense.loggedBy);
-      setPaymentMethod(expense.paymentMethod);
-      setNote(expense.note || '');
-      setDate(expense.date);
-    }
+    if (!expense) return;
+    setAmount(expense.amount);
+    setCategoryId(expense.categoryId);
+    setLoggedBy(expense.loggedBy);
+    setPaymentMethod(expense.paymentMethod);
+    setNote(expense.note || '');
+    setDate(expense.date);
+    setConfirmingDelete(false);
   }, [expense]);
-
-  if (!isOpen || !expense) return null;
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    if (amount <= 0) return;
-
+    if (!expense || amount <= 0) return;
     updateExpense(expense.id, {
-      amount,
-      categoryId,
-      loggedBy,
-      paymentMethod,
-      note: note.trim() || undefined,
-      date,
+      amount, categoryId, loggedBy, paymentMethod,
+      note: note.trim() || undefined, date,
     });
-
     onClose();
   };
 
   const handleDelete = () => {
-    if (window.confirm('Delete this expense record?')) {
-      deleteExpense(expense.id);
-      onClose();
+    if (!expense) return;
+    /* Was `window.confirm`, which on iOS standalone blocks the whole app in a
+       system alert that does not match anything else here. Two-step inline
+       confirm instead -- same safety, no context switch. */
+    if (!confirmingDelete) {
+      setConfirmingDelete(true);
+      return;
     }
+    deleteExpense(expense.id);
+    onClose();
   };
 
   return (
-    <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-        {/* Backdrop */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={onClose}
-          className="fixed inset-0 bg-[var(--color-bg-sage)]/90 backdrop-blur-md"
-        />
+    <Sheet
+      isOpen={isOpen && !!expense}
+      onClose={onClose}
+      title="Edit expense"
+      subtitle={categories.find((c) => c.id === categoryId)?.name ?? 'Outflow'}
+      tone="olive"
+      footer={
+        <div className="flex gap-2">
+          <motion.button
+            type="button"
+            whileTap={PRESS}
+            onClick={handleDelete}
+            className={`h-14 flex items-center justify-center gap-2 font-mono font-bold text-[10px] uppercase tracking-[0.16em] transition-all ${
+              confirmingDelete
+                ? 'flex-1 bg-[var(--color-terracotta)] text-white'
+                : 'w-14 bg-[var(--color-terracotta)] text-white'
+            }`}
+          >
+            <Trash2 size={16} />
+            {confirmingDelete && <span>Tap again to delete</span>}
+          </motion.button>
 
-        {/* Modal Card */}
-        <motion.div
-          initial={{ y: '100%' }}
-          animate={{ y: 0 }}
-          exit={{ y: '100%' }}
-          transition={{ type: 'spring', damping: 28, stiffness: 350 }}
-          className="relative w-full max-w-lg bg-[var(--color-bg-sage)] border-2 border-[var(--color-ink)] p-5 shadow-[4px_4px_0_0_var(--color-ink)] z-10 max-h-[92vh] flex flex-col overflow-y-auto"
-        >
-          <div className="flex items-center justify-between mb-4 border-b-2 border-[var(--color-ink)] pb-3">
-            <h2 className="text-sm font-mono font-bold uppercase tracking-widest text-[var(--color-ink)] flex items-center gap-2">
-              <Tag size={16} />
-              <span>Modify Outflow</span>
-            </h2>
-
-            <button
-              onClick={onClose}
-              className="text-[var(--color-ink)] hover:scale-110 transition-transform"
+          {!confirmingDelete && (
+            <motion.button
+              type="submit"
+              form="edit-expense-form"
+              whileTap={PRESS}
+              className="flex-1 h-14 bg-[var(--color-ink)] text-white font-mono font-bold text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-2"
             >
-              <X size={20} />
-            </button>
+              <Check size={17} strokeWidth={3} /> Save
+            </motion.button>
+          )}
+        </div>
+      }
+    >
+      <form id="edit-expense-form" onSubmit={handleSave} className="px-4 py-4 flex flex-col gap-5">
+        <div>
+          <label htmlFor="exp-amount" className={LABEL}>Amount (ARS)</label>
+          <input
+            id="exp-amount"
+            type="number"
+            inputMode="numeric"
+            required
+            value={amount || ''}
+            onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
+            className={`${FIELD} !h-16 !text-2xl font-display font-semibold tabular`}
+          />
+        </div>
+
+        <fieldset>
+          <legend className={LABEL}>Category</legend>
+          <div className="grid grid-cols-4 gap-1.5">
+            {categories.map((cat) => {
+              const isSelected = categoryId === cat.id;
+              return (
+                <motion.button
+                  key={cat.id}
+                  type="button"
+                  whileTap={PRESS_HARD}
+                  aria-pressed={isSelected}
+                  onClick={() => setCategoryId(cat.id)}
+                  className={`relative min-h-[4.25rem] px-1 py-2 flex flex-col items-center justify-center gap-1.5 border-2 transition-colors duration-150 ${
+                    isSelected
+                      ? 'bg-[var(--color-ink)] text-white border-[var(--color-ink)]'
+                      : 'bg-[var(--color-paper-hi)] text-[var(--color-ink-2)] border-[var(--color-ink)]/12'
+                  }`}
+                >
+                  {isSelected && (
+                    <motion.span
+                      layoutId="edit-cat-marker"
+                      transition={{ duration: 0.22, ease: EASE_OUT }}
+                      className="absolute top-0 left-0 right-0 h-[3px] bg-[var(--color-mustard)]"
+                    />
+                  )}
+                  <CategoryIcon name={cat.icon} size={18} color={isSelected ? cat.color : undefined} />
+                  <span className="text-[8.5px] font-mono uppercase tracking-[0.06em] leading-[1.15] text-center line-clamp-2">
+                    {cat.name}
+                  </span>
+                </motion.button>
+              );
+            })}
           </div>
+        </fieldset>
 
-          <form onSubmit={handleSave} className="space-y-4">
-            {/* Amount */}
-            <div>
-              <label className="text-[10px] uppercase font-mono font-bold text-[var(--color-ink)] block mb-1">
-                Amount ($ ARS)
-              </label>
-              <input
-                type="number"
-                required
-                value={amount || ''}
-                onChange={e => setAmount(parseFloat(e.target.value) || 0)}
-                className="w-full bg-white border-2 border-[var(--color-ink)] px-4 py-3 text-xl font-display font-bold text-[var(--color-ink)] focus:outline-none focus:shadow-[2px_2px_0_0_var(--color-ink)]"
-              />
-            </div>
-
-            {/* Category Selector */}
-            <div>
-              <label className="text-[10px] uppercase font-mono font-bold text-[var(--color-ink)] block mb-1.5">
-                Category
-              </label>
-              <div className="grid grid-cols-3 gap-1 max-h-36 overflow-y-auto p-1">
-                {categories.map(cat => (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => setCategoryId(cat.id)}
-                    className={`py-2 px-1 border-2 flex flex-col items-center gap-1 transition-all ${
-                      categoryId === cat.id
-                        ? 'border-[var(--color-ink)] bg-[var(--color-ink)] text-white'
-                        : 'border-[var(--color-ink)]/20 bg-white text-[var(--color-ink)] hover:border-[var(--color-ink)]'
-                    }`}
-                  >
-                    <span className="text-[9px] font-mono uppercase tracking-widest font-bold truncate w-full text-center">
-                      {cat.name}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Logger Switcher */}
-            <div className="grid grid-cols-2 gap-2">
-              <button
+        <fieldset>
+          <legend className={LABEL}>Paid by</legend>
+          <div className="grid grid-cols-2 gap-2">
+            {(['mati', 'belu'] as UserId[]).map((u) => (
+              <motion.button
+                key={u}
                 type="button"
-                onClick={() => setLoggedBy('mati')}
-                className={`py-2 px-3 text-[10px] font-mono uppercase font-bold border-2 transition-all ${
-                  loggedBy === 'mati'
-                    ? 'bg-[var(--color-ink)] text-white border-[var(--color-ink)] shadow-[2px_2px_0_0_var(--color-accent-mustard)]'
-                    : 'bg-white text-[var(--color-ink)] border-[var(--color-ink)]/20'
+                whileTap={PRESS}
+                aria-pressed={loggedBy === u}
+                onClick={() => setLoggedBy(u)}
+                className={`h-12 text-[11px] font-mono uppercase tracking-[0.12em] font-bold border-2 transition-colors ${
+                  loggedBy === u
+                    ? 'bg-[var(--color-ink)] text-[var(--color-mustard)] border-[var(--color-ink)]'
+                    : 'bg-[var(--color-paper-hi)] text-[var(--color-ink-2)] border-[var(--color-ink)]/15'
                 }`}
               >
-                Paid by Mati
-              </button>
+                {u}
+              </motion.button>
+            ))}
+          </div>
+        </fieldset>
 
-              <button
-                type="button"
-                onClick={() => setLoggedBy('belu')}
-                className={`py-2 px-3 text-[10px] font-mono uppercase font-bold border-2 transition-all ${
-                  loggedBy === 'belu'
-                    ? 'bg-[var(--color-ink)] text-white border-[var(--color-ink)] shadow-[2px_2px_0_0_var(--color-accent-terracotta)]'
-                    : 'bg-white text-[var(--color-ink)] border-[var(--color-ink)]/20'
-                }`}
-              >
-                Paid by Belu
-              </button>
-            </div>
+        <div>
+          <label htmlFor="exp-note" className={LABEL}>Note</label>
+          <input
+            id="exp-note"
+            type="text"
+            placeholder="What was it?"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            className={`${FIELD} placeholder-[var(--color-ink)]/35`}
+          />
+        </div>
 
-            {/* Note, Method & Date */}
-            <div className="grid grid-cols-3 gap-2">
-              <input
-                type="text"
-                placeholder="Note..."
-                value={note}
-                onChange={e => setNote(e.target.value)}
-                className="bg-white border-2 border-[var(--color-ink)] px-2 py-2 text-xs font-mono text-[var(--color-ink)] placeholder-[var(--color-ink)]/40 focus:outline-none focus:shadow-[2px_2px_0_0_var(--color-ink)]"
-              />
-
-              <select
-                value={paymentMethod}
-                onChange={e => setPaymentMethod(e.target.value as PaymentMethod)}
-                className="bg-white border-2 border-[var(--color-ink)] px-2 py-2 text-[10px] font-mono uppercase font-bold text-[var(--color-ink)] focus:outline-none focus:shadow-[2px_2px_0_0_var(--color-ink)]"
-              >
-                <option value="debito">Debit</option>
-                <option value="credito">Credit</option>
-                <option value="transferencia">Transfer</option>
-                <option value="efectivo">Cash</option>
-              </select>
-
-              <input
-                type="date"
-                value={date}
-                onChange={e => setDate(e.target.value)}
-                className="bg-white border-2 border-[var(--color-ink)] px-2 py-2 text-[10px] font-mono uppercase font-bold text-[var(--color-ink)] focus:outline-none focus:shadow-[2px_2px_0_0_var(--color-ink)]"
-              />
-            </div>
-
-            {/* Actions */}
-            <div className="flex gap-2 pt-4">
-              <button
-                type="button"
-                onClick={handleDelete}
-                className="py-3 px-4 bg-[var(--color-accent-terracotta)] hover:brightness-110 border-2 border-[var(--color-ink)] text-white font-mono font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all"
-              >
-                <Trash2 size={15} />
-              </button>
-
-              <button
-                type="submit"
-                className="flex-1 py-3 px-4 bg-[var(--color-ink)] text-white font-mono font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-1.5 hover:brightness-110 transition-all"
-              >
-                <Check size={16} />
-                <span>Save Changes</span>
-              </button>
-            </div>
-          </form>
-        </motion.div>
-      </div>
-    </AnimatePresence>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label htmlFor="exp-method" className={LABEL}>Method</label>
+            <select
+              id="exp-method"
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+              className={FIELD}
+            >
+              <option value="debito">Debit</option>
+              <option value="credito">Credit</option>
+              <option value="transferencia">Transfer</option>
+              <option value="efectivo">Cash</option>
+            </select>
+          </div>
+          <div>
+            <label htmlFor="exp-date" className={LABEL}>Date</label>
+            <input
+              id="exp-date"
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className={FIELD}
+            />
+          </div>
+        </div>
+      </form>
+    </Sheet>
   );
 };

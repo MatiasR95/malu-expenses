@@ -1,56 +1,75 @@
 import React from 'react';
-import * as Icons from 'lucide-react';
+import {
+  Apple, Baby, Beef, BookOpen, Briefcase, Building2, Bus, Candy, Car, Coffee,
+  CreditCard, Dog, Droplets, Dumbbell, Egg, Flame, Fuel, Gamepad2, Gift, Hammer,
+  HeartPulse, House, Pill, Plane, Salad, Scissors, Shirt, ShoppingBag,
+  ShoppingCart, Smartphone, Sparkles, Sprout, Tag, Tv, Users, UtensilsCrossed,
+  Wifi, Wine, Wrench, Zap,
+  type LucideIcon,
+} from 'lucide-react';
 
 interface CategoryIconProps {
   name: string;
   className?: string;
   size?: number;
   color?: string;
+  strokeWidth?: number;
 }
+
+/**
+ * Explicit icon map.
+ *
+ * This used to `import * as Icons from 'lucide-react'` and index it by string,
+ * which defeats tree-shaking and pulls all ~4,000 icons into the bundle for the
+ * sake of twenty. One family, one stroke weight, one grid.
+ *
+ * Every name offered by the category picker must appear here: an unmapped name
+ * silently renders the fallback tag, so a user could pick the plane icon and
+ * get a label instead.
+ */
+const ICONS: Record<string, LucideIcon> = {
+  Apple, Baby, Beef, BookOpen, Briefcase, Building2, Bus, Candy, Car, Coffee,
+  CreditCard, Dog, Droplets, Dumbbell, Egg, Flame, Fuel, Gamepad2, Gift, Hammer,
+  HeartPulse, Home: House, House, Pill, Plane, Salad, Scissors, Shirt,
+  ShoppingBag, ShoppingCart, Smartphone, Sparkles, Sprout, Tag, Tv, Users,
+  UtensilsCrossed, Wifi, Wine, Wrench, Zap,
+};
+
+/** The set offered when creating a category. Kept in sync with ICONS above. */
+export const PICKER_ICONS: string[] = [
+  'ShoppingCart', 'UtensilsCrossed', 'Coffee', 'Wine', 'Apple', 'Beef',
+  'House', 'Building2', 'Car', 'Bus', 'Plane', 'Fuel',
+  'HeartPulse', 'Pill', 'Dumbbell', 'Baby', 'Dog', 'Sprout',
+  'Shirt', 'ShoppingBag', 'Gift', 'Scissors', 'Smartphone', 'Tv',
+  'Gamepad2', 'BookOpen', 'Wrench', 'Hammer', 'Briefcase', 'Sparkles',
+];
+
+/** Category ids that ship without a matching icon name. */
+const BY_CATEGORY: Record<string, LucideIcon> = {
+  verduleria: Salad,
+  fruteria: Apple,
+  carniceria: Beef,
+  huevos: Egg,
+  supermercado: ShoppingCart,
+  alquiler: House,
+  expensas: Building2,
+  combustible: Fuel,
+  subscripciones: Tv,
+  salidas: UtensilsCrossed,
+  tarjetas: CreditCard,
+  gym: Dumbbell,
+  gym_operacion: Users,
+  force: Dumbbell,
+  suplemento: Zap,
+};
 
 export const CategoryIcon: React.FC<CategoryIconProps> = ({
   name,
   className = '',
   size = 20,
   color,
+  strokeWidth = 1.75,
 }) => {
-  // Try to find icon in Lucide
-  const IconComponent = (Icons as unknown as Record<string, React.ComponentType<{ size?: number; className?: string; color?: string }>>)[name];
-
-  if (IconComponent) {
-    return <IconComponent size={size} className={className} color={color} />;
-  }
-
-  // Fallbacks for known category names or default
-  switch (name.toLowerCase()) {
-    case 'verduleria':
-      return <Icons.Salad size={size} className={className} color={color} />;
-    case 'fruteria':
-      return <Icons.Apple size={size} className={className} color={color} />;
-    case 'carniceria':
-      return <Icons.Beef size={size} className={className} color={color} />;
-    case 'huevos':
-      return <Icons.Egg size={size} className={className} color={color} />;
-    case 'supermercado':
-      return <Icons.ShoppingCart size={size} className={className} color={color} />;
-    case 'alquiler':
-      return <Icons.Home size={size} className={className} color={color} />;
-    case 'expensas':
-      return <Icons.Building2 size={size} className={className} color={color} />;
-    case 'combustible':
-      return <Icons.Fuel size={size} className={className} color={color} />;
-    case 'subscripciones':
-      return <Icons.Tv size={size} className={className} color={color} />;
-    case 'salidas':
-      return <Icons.UtensilsCrossed size={size} className={className} color={color} />;
-    case 'tarjetas':
-      return <Icons.CreditCard size={size} className={className} color={color} />;
-    case 'gym':
-    case 'force':
-      return <Icons.Dumbbell size={size} className={className} color={color} />;
-    case 'suplemento':
-      return <Icons.Zap size={size} className={className} color={color} />;
-    default:
-      return <Icons.Tag size={size} className={className} color={color} />;
-  }
+  const Icon = ICONS[name] ?? BY_CATEGORY[name?.toLowerCase()] ?? Tag;
+  return <Icon size={size} className={className} color={color} strokeWidth={strokeWidth} />;
 };

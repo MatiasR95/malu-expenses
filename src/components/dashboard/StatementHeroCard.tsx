@@ -1,40 +1,74 @@
-﻿import React from 'react';
+import React from 'react';
+import { TrendingDown, TrendingUp } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { InteractiveHeroChart } from './InteractiveHeroChart';
+import { Amount } from '../common/Amount';
 
+/**
+ * The statement head: what's left, what it burns down to, and the trace.
+ *
+ * `dailySafeBurnRate` and `daysRemaining` were already computed in context and
+ * displayed nowhere -- which is the single most useful thing a shared-cash app
+ * can tell you, so they now sit directly under the headline figure.
+ */
 export const StatementHeroCard: React.FC = () => {
   const { monthlySummary, userFilter } = useFinance();
+  const { netAvailableCash, dailySafeBurnRate, daysRemaining, totalIncome, totalExpenses } =
+    monthlySummary;
 
-  const formattedTotal = monthlySummary.netAvailableCash.toLocaleString('en-US', {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  });
-
-  const [integerPart, decimalPart] = formattedTotal.split('.');
+  const label = userFilter === 'all' ? 'Available' : `Available · ${userFilter}`;
+  const isPositive = netAvailableCash >= 0;
 
   return (
-    <div className="flex flex-col items-center pt-2 pb-8 bg-[var(--color-bg-sage)] overflow-hidden w-full">
-      {/* Title */}
-      <div className="w-full text-left px-6">
-        <h2 className="text-[11px] font-mono uppercase tracking-widest text-[var(--color-ink)] opacity-60 mb-2">
-          {userFilter === 'all' ? 'Total Available' : `${userFilter}'s Available`}
-        </h2>
+    <section className="reveal w-full pt-1 pb-6">
+      <div className="px-5">
+        <h1 className="text-[10px] font-mono uppercase tracking-[0.24em] text-[var(--color-ink-3)] mb-2">
+          {label}
+        </h1>
+
+        <Amount value={netAvailableCash} size="hero" animate className="text-[var(--color-ink)]" />
+
+        {/* Runway strip. Three readings on one baseline, receipt-style. */}
+        <dl
+          style={{ animationDelay: '120ms' }}
+          className="reveal mt-4 grid grid-cols-3 border-y border-[var(--color-ink)]/12 divide-x divide-[var(--color-ink)]/12"
+        >
+          <div className="py-2.5 pr-3">
+            <dt className="text-[9px] font-mono uppercase tracking-[0.16em] text-[var(--color-ink-3)]">
+              Safe / day
+            </dt>
+            <dd className="font-display font-semibold text-base tabular mt-1">
+              ${dailySafeBurnRate.toLocaleString('en-US')}
+            </dd>
+          </div>
+          <div className="py-2.5 px-3">
+            <dt className="text-[9px] font-mono uppercase tracking-[0.16em] text-[var(--color-ink-3)]">
+              Days left
+            </dt>
+            <dd className="font-display font-semibold text-base tabular mt-1">{daysRemaining}</dd>
+          </div>
+          <div className="py-2.5 pl-3">
+            <dt className="text-[9px] font-mono uppercase tracking-[0.16em] text-[var(--color-ink-3)]">
+              Month flow
+            </dt>
+            <dd className="flex items-center gap-1 mt-1">
+              {isPositive ? (
+                <TrendingUp size={14} className="text-[var(--color-mustard-dp)]" strokeWidth={2.25} />
+              ) : (
+                <TrendingDown size={14} className="text-[var(--color-terracotta-dp)]" strokeWidth={2.25} />
+              )}
+              <span className="font-display font-semibold text-base tabular">
+                {totalIncome > 0 ? Math.round((totalExpenses / totalIncome) * 100) : 0}%
+              </span>
+              <span className="text-[9px] font-mono text-[var(--color-ink-3)]">spent</span>
+            </dd>
+          </div>
+        </dl>
       </div>
 
-      {/* Massive Amount - using standard responsive text sizing to prevent overflow */}
-      <div className="w-full text-left px-6">
-        <div className="font-display font-medium text-4xl sm:text-5xl md:text-6xl text-[var(--color-ink)] flex items-baseline whitespace-nowrap tracking-normal">
-          <span className="text-2xl sm:text-3xl mr-1 opacity-70">$</span>
-          <span>{integerPart}</span>
-          {/* Use ml-1 to separate the outline stroke slightly so it doesn't overlap */}
-          <span className="decimal-outline text-3xl sm:text-4xl ml-1">.{decimalPart}</span>
-        </div>
-      </div>
-
-      {/* Interactive Trajectory Visualization (Bleeds Edge to Edge) */}
-      <div className="w-full mt-4">
+      <div className="mt-5">
         <InteractiveHeroChart />
       </div>
-    </div>
+    </section>
   );
 };

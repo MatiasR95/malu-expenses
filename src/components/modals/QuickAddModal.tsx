@@ -1,7 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Delete, Check, Users, Zap, Building2, Plus } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
-import { Delete, Check, Users, Zap, Building2, X } from 'lucide-react';
+import { Sheet } from '../common/Sheet';
+import { CategoryIcon } from '../common/CategoryIcon';
+import { Amount } from '../common/Amount';
+import { EASE_OUT, PRESS, PRESS_HARD } from '../../lib/motion';
+import { tick } from '../../utils/haptics';
 
 interface Props {
   isOpen: boolean;
@@ -10,59 +15,118 @@ interface Props {
   initialMode?: 'expense' | 'income';
 }
 
-export const QuickAddModal: React.FC<Props> = ({ isOpen, onClose, initialCategoryId, initialMode = 'expense' }) => {
+type IncomeType = 'cuota' | 'suplemento' | 'assurant' | 'otro';
+
+const SUPPLEMENTS = [
+  { id: 's1', name: 'Creatine Monohydrate', defaultPrice: 28000 },
+  { id: 's2', name: 'Whey Protein', defaultPrice: 35000 },
+  { id: 's3', name: 'Pre-Workout', defaultPrice: 22000 },
+];
+
+const INCOME_TYPES: { id: IncomeType; label: string; icon: typeof Users; preset: number }[] = [
+  { id: 'cuota', label: 'Dues', icon: Users, preset: 45000 },
+  { id: 'suplemento', label: 'Store', icon: Zap, preset: 29000 },
+  { id: 'assurant', label: 'Salary', icon: Building2, preset: 1200000 },
+  { id: 'otro', label: 'Other', icon: Plus, preset: 0 },
+];
+
+/** Two-up segmented choice. Used for payer and payment method. */
+const Segmented = <T extends string>({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: T;
+  onChange: (v: T) => void;
+  options: { id: T; label: string }[];
+}) => (
+  <fieldset>
+    <legend className="text-[10px] font-mono uppercase tracking-[0.2em] text-[var(--color-ink-3)] mb-2">
+      {label}
+    </legend>
+    <div className="grid grid-cols-2 gap-2">
+      {options.map((opt) => {
+        const isActive = value === opt.id;
+        return (
+          <motion.button
+            key={opt.id}
+            type="button"
+            whileTap={PRESS}
+            aria-pressed={isActive}
+            onClick={() => onChange(opt.id)}
+            className={`h-12 px-2 text-[11px] font-mono uppercase tracking-[0.1em] font-bold border-2 transition-colors duration-150 ${
+              isActive
+                ? 'bg-[var(--color-ink)] text-[var(--color-mustard)] border-[var(--color-ink)]'
+                : 'bg-[var(--color-paper-hi)] text-[var(--color-ink-2)] border-[var(--color-ink)]/15 hover:border-[var(--color-ink)]/40'
+            }`}
+          >
+            {opt.label}
+          </motion.button>
+        );
+      })}
+    </div>
+  </fieldset>
+);
+
+export const QuickAddModal: React.FC<Props> = ({
+  isOpen,
+  onClose,
+  initialCategoryId,
+  initialMode = 'expense',
+}) => {
   const { categories, addExpense, addIncome } = useFinance();
-  
+
   const [mode, setMode] = useState<'expense' | 'income'>(initialMode);
   const [amountStr, setAmountStr] = useState('0');
-  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedLogger, setSelectedLogger] = useState<'mati' | 'belu'>('mati');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'transferencia' | 'efectivo'>('transferencia');
-  const [incomeType, setIncomeType] = useState<'cuota' | 'suplemento' | 'assurant' | 'otro'>('cuota');
+  const [incomeType, setIncomeType] = useState<IncomeType>('cuota');
   const [memberName, setMemberName] = useState('');
-  const [selectedSupplement, setSelectedSupplement] = useState('Creatine Monohydrate');
-
-  const supplements = [
-    { id: 's1', name: 'Creatine Monohydrate', defaultPrice: 28000 },
-    { id: 's2', name: 'Whey Protein', defaultPrice: 35000 },
-    { id: 's3', name: 'Pre-Workout', defaultPrice: 22000 },
-  ];
+  const [selectedSupplement, setSelectedSupplement] = useState(SUPPLEMENTS[0].name);
 
   useEffect(() => {
-    if (isOpen) {
-      setMode(initialMode);
-      setAmountStr('0');
-      setMemberName('');
-      if (initialMode === 'expense') {
-        setSelectedCategory(initialCategoryId || categories[0]?.id || '');
-      } else {
-        setIncomeType('cuota');
-      }
+    if (!isOpen) return;
+    setMode(initialMode);
+    setAmountStr('0');
+    setMemberName('');
+    if (initialMode === 'expense') {
+      setSelectedCategory(initialCategoryId || categories[0]?.id || '');
+    } else {
+      setIncomeType('cuota');
     }
   }, [isOpen, initialMode, initialCategoryId, categories]);
 
-  const currentAmount = parseInt(amountStr, 10);
+  const currentAmount = parseInt(amountStr, 10) || 0;
+
+  const canSubmit = useMemo(() => {
+    if (currentAmount <= 0) return false;
+    if (mode === 'expense') return !!selectedCategory;
+    if (incomeType === 'cuota') return memberName.trim().length > 0;
+    return true;
+  }, [currentAmount, mode, selectedCategory, incomeType, memberName]);
+
 
   const handleKeyPress = (key: string) => {
-    setAmountStr(prev => {
-      if (prev === '0' && key !== '000') return key;
-      if (prev === '0' && key === '000') return '0';
+    tick(6);
+    setAmountStr((prev) => {
+      if (prev === '0') return key === '000' ? '0' : key;
       if (prev.length > 8) return prev;
       return prev + key;
     });
   };
 
   const handleDeleteDigit = () => {
-    setAmountStr(prev => (prev.length > 1 ? prev.slice(0, -1) : '0'));
-  };
-
-  const handleAddQuickAmount = (val: number) => {
-    setAmountStr(prev => String(parseInt(prev, 10) + val));
+    tick(6);
+    setAmountStr((prev) => (prev.length > 1 ? prev.slice(0, -1) : '0'));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (currentAmount <= 0) return;
+    if (!canSubmit) return;
+    const date = new Date().toISOString().split('T')[0];
 
     if (mode === 'expense') {
       addExpense({
@@ -70,307 +134,269 @@ export const QuickAddModal: React.FC<Props> = ({ isOpen, onClose, initialCategor
         categoryId: selectedCategory,
         loggedBy: selectedLogger,
         paymentMethod: selectedPaymentMethod,
-        date: new Date().toISOString().split('T')[0]
+        date,
+      });
+    } else if (incomeType === 'cuota') {
+      addIncome({
+        amount: currentAmount, source: 'force_gym', platform: 'mercadopago',
+        forceDetails: { type: 'cuota', memberName },
+        notes: `Cuota Mensual - ${memberName}`, date, createdBy: 'mati',
+      });
+    } else if (incomeType === 'suplemento') {
+      addIncome({
+        amount: currentAmount, source: 'force_gym', platform: 'mercadopago',
+        forceDetails: { type: 'suplemento', productTag: selectedSupplement },
+        notes: `Store Sale - ${selectedSupplement}`, date, createdBy: 'mati',
+      });
+    } else if (incomeType === 'assurant') {
+      addIncome({
+        amount: currentAmount, source: 'assurant', platform: 'galicia',
+        notes: 'Assurant Salary', date, createdBy: 'mati',
       });
     } else {
-      if (incomeType === 'cuota') {
-        if (!memberName) return;
-        addIncome({
-          amount: currentAmount,
-          source: 'force_gym',
-          platform: 'mercadopago',
-          forceDetails: { type: 'cuota', memberName },
-          notes: `Cuota Mensual - ${memberName}`,
-          date: new Date().toISOString().split('T')[0],
-          createdBy: 'mati'
-        });
-      } else if (incomeType === 'suplemento') {
-        addIncome({
-          amount: currentAmount,
-          source: 'force_gym',
-          platform: 'mercadopago',
-          forceDetails: { type: 'suplemento', productTag: selectedSupplement },
-          notes: `Store Sale - ${selectedSupplement}`,
-          date: new Date().toISOString().split('T')[0],
-          createdBy: 'mati'
-        });
-      } else if (incomeType === 'assurant') {
-        addIncome({
-          amount: currentAmount,
-          source: 'assurant',
-          platform: 'galicia',
-          notes: `Assurant Salary`,
-          date: new Date().toISOString().split('T')[0],
-          createdBy: 'mati'
-        });
-      } else if (incomeType === 'otro') {
-        addIncome({
-          amount: currentAmount,
-          source: 'assurant', // Reusing a general source, but note acts as description
-          platform: 'efectivo',
-          notes: memberName || `Manual Cash Addition`,
-          date: new Date().toISOString().split('T')[0],
-          createdBy: 'mati'
-        });
-      }
+      addIncome({
+        amount: currentAmount, source: 'assurant', platform: 'efectivo',
+        notes: memberName || 'Manual Cash Addition', date, createdBy: 'mati',
+      });
     }
 
-    if ('vibrate' in navigator) navigator.vibrate(15);
+    tick(18);
     onClose();
   };
 
-  if (!isOpen) return null;
+  const activeCategory = categories.find((c) => c.id === selectedCategory);
 
   return (
-    <AnimatePresence>
-      <div className="fixed inset-0 z-[110] flex flex-col justify-end">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={onClose}
-          className="absolute inset-0 bg-[var(--color-bg-sage)]/90 backdrop-blur-sm"
-        />
-
-        <motion.div
-          initial={{ y: '100%' }}
-          animate={{ y: 0 }}
-          exit={{ y: '100%' }}
-          transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-          className="relative w-full max-w-md mx-auto bg-[var(--color-bg-sage)] text-[var(--color-ink)] flex flex-col max-h-[90vh] shadow-2xl"
+    <Sheet
+      isOpen={isOpen}
+      onClose={onClose}
+      title={mode === 'expense' ? 'Log expense' : 'Log income'}
+      subtitle={mode === 'expense' ? activeCategory?.name ?? 'Pick a category' : 'Money in'}
+      tone={mode === 'expense' ? 'olive' : 'mustard'}
+      footer={
+        <motion.button
+          type="submit"
+          form="quick-add-form"
+          whileTap={canSubmit ? PRESS : undefined}
+          disabled={!canSubmit}
+          className="w-full h-14 bg-[var(--color-ink)] text-white font-mono font-bold text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-2 disabled:opacity-35 transition-opacity"
         >
-          {/* Brutalist Header Block */}
-          <div className={`w-full flex items-center justify-between p-4 ${mode === 'expense' ? 'bg-[var(--color-block-1)] text-white' : 'bg-[var(--color-accent-mustard)] text-[var(--color-ink)]'}`}>
-            <span className="font-display font-medium text-xl uppercase tracking-widest">
-              Log {mode}
-            </span>
-            <button onClick={onClose} className="opacity-60 hover:opacity-100">
-              <X size={24} />
-            </button>
-          </div>
+          <Check size={18} strokeWidth={3} />
+          <span>{canSubmit ? 'Confirm' : mode === 'expense' ? 'Enter an amount' : 'Complete the details'}</span>
+        </motion.button>
+      }
+    >
+      <form id="quick-add-form" onSubmit={handleSubmit} className="px-4 pt-3 pb-4 flex flex-col gap-5">
+        {/* Mode switch — the hub sets this, but flipping mid-entry should not
+            cost a round trip back out to the hub. */}
+        <div className="grid grid-cols-2 gap-2">
+          {(['expense', 'income'] as const).map((m) => (
+            <motion.button
+              key={m}
+              type="button"
+              whileTap={PRESS}
+              onClick={() => setMode(m)}
+              aria-pressed={mode === m}
+              className={`h-10 text-[10px] font-mono uppercase tracking-[0.2em] font-bold transition-colors duration-150 ${
+                mode === m
+                  ? 'bg-[var(--color-ink)] text-[var(--color-mustard)]'
+                  : 'bg-[var(--color-ink)]/8 text-[var(--color-ink-3)] hover:bg-[var(--color-ink)]/14'
+              }`}
+            >
+              {m}
+            </motion.button>
+          ))}
+        </div>
 
-          <form onSubmit={handleSubmit} className="p-4 sm:p-5 flex flex-col gap-4 overflow-y-auto">
-            
-            {/* Amount Display Block */}
-            <div className="w-full bg-white border-2 border-[var(--color-ink)] flex flex-col items-center justify-center py-6 px-4 mb-2 shadow-[4px_4px_0_0_var(--color-ink)]">
-              <div className="text-[10px] font-mono uppercase tracking-widest opacity-60 mb-1 font-bold">
-                Transaction Amount
+        {/* Amount readout */}
+        <div className="w-full bg-[var(--color-paper-hi)] border-2 border-[var(--color-ink)] block-shadow flex flex-col items-center justify-center py-5 px-4">
+          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[var(--color-ink-3)] mb-1.5">
+            Amount
+          </span>
+          <Amount value={currentAmount} size="hero" className="!text-[2.25rem] sm:!text-5xl" />
+        </div>
+
+        {mode === 'expense' ? (
+          <>
+            {/* Categories.
+                Was a single horizontal scroll strip of 9px pills -- twelve
+                categories, only three visible, no scroll affordance, and the
+                far end of the list was effectively unreachable on a phone.
+                Now every category is on screen at once in a 4-up grid. */}
+            <fieldset>
+              <legend className="text-[10px] font-mono uppercase tracking-[0.2em] text-[var(--color-ink-3)] mb-2">
+                Category
+              </legend>
+              <div className="grid grid-cols-4 gap-1.5">
+                {categories.map((cat) => {
+                  const isSelected = selectedCategory === cat.id;
+                  return (
+                    <motion.button
+                      key={cat.id}
+                      type="button"
+                      whileTap={PRESS_HARD}
+                      aria-pressed={isSelected}
+                      onClick={() => { setSelectedCategory(cat.id); tick(6); }}
+                      className={`relative min-h-[4.25rem] px-1 py-2 flex flex-col items-center justify-center gap-1.5 border-2 transition-colors duration-150 ${
+                        isSelected
+                          ? 'bg-[var(--color-ink)] text-white border-[var(--color-ink)]'
+                          : 'bg-[var(--color-paper-hi)] text-[var(--color-ink-2)] border-[var(--color-ink)]/12 hover:border-[var(--color-ink)]/40'
+                      }`}
+                    >
+                      {isSelected && (
+                        <motion.span
+                          layoutId="cat-marker"
+                          transition={{ duration: 0.22, ease: EASE_OUT }}
+                          className="absolute top-0 left-0 right-0 h-[3px] bg-[var(--color-mustard)]"
+                        />
+                      )}
+                      <CategoryIcon
+                        name={cat.icon}
+                        size={19}
+                        strokeWidth={isSelected ? 2 : 1.6}
+                        color={isSelected ? cat.color : undefined}
+                      />
+                      <span className="text-[8.5px] font-mono uppercase tracking-[0.06em] leading-[1.15] text-center line-clamp-2">
+                        {cat.name}
+                      </span>
+                    </motion.button>
+                  );
+                })}
               </div>
-              <div className="font-display font-bold text-4xl sm:text-5xl flex items-baseline tracking-normal whitespace-nowrap overflow-hidden">
-                <span className="opacity-40 mr-1 text-2xl sm:text-3xl">$</span>
-                <span>{Number(amountStr).toLocaleString('en-US')}</span>
-                {/* ml-1 added to ensure stroke doesn't overlap text */}
-                <span className="decimal-outline text-2xl sm:text-3xl ml-1">.0</span>
-              </div>
+            </fieldset>
+
+            <Segmented
+              label="Paid by"
+              value={selectedLogger}
+              onChange={setSelectedLogger}
+              options={[{ id: 'mati', label: 'Mati' }, { id: 'belu', label: 'Belu' }]}
+            />
+
+            <Segmented
+              label="Method"
+              value={selectedPaymentMethod}
+              onChange={setSelectedPaymentMethod}
+              options={[
+                { id: 'transferencia', label: 'Transfer' },
+                { id: 'efectivo', label: 'Cash' },
+              ]}
+            />
+          </>
+        ) : (
+          <fieldset>
+            <legend className="text-[10px] font-mono uppercase tracking-[0.2em] text-[var(--color-ink-3)] mb-2">
+              Source
+            </legend>
+            <div className="grid grid-cols-4 gap-1.5">
+              {INCOME_TYPES.map(({ id, label, icon: Icon, preset }) => {
+                const isActive = incomeType === id;
+                return (
+                  <motion.button
+                    key={id}
+                    type="button"
+                    whileTap={PRESS_HARD}
+                    aria-pressed={isActive}
+                    onClick={() => {
+                      setIncomeType(id);
+                      setAmountStr(String(preset));
+                      if (id === 'otro') setMemberName('');
+                      tick(6);
+                    }}
+                    className={`min-h-[4.25rem] px-1 py-2 flex flex-col items-center justify-center gap-1.5 border-2 transition-colors duration-150 ${
+                      isActive
+                        ? 'bg-[var(--color-ink)] text-[var(--color-mustard)] border-[var(--color-ink)]'
+                        : 'bg-[var(--color-paper-hi)] text-[var(--color-ink-2)] border-[var(--color-ink)]/12'
+                    }`}
+                  >
+                    <Icon size={19} strokeWidth={isActive ? 2 : 1.6} />
+                    <span className="text-[8.5px] font-mono uppercase tracking-[0.08em]">{label}</span>
+                  </motion.button>
+                );
+              })}
             </div>
 
-            {/* EXPENSE VIEW */}
-            {mode === 'expense' ? (
-              <>
-                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none items-stretch">
-                  {categories.map(cat => {
-                    const isSelected = selectedCategory === cat.id;
-                    return (
-                      <button
-                        key={cat.id}
-                        type="button"
-                        onClick={() => setSelectedCategory(cat.id)}
-                        className={`px-3 py-3 min-h-[40px] border-2 shrink-0 flex items-center justify-center gap-1.5 text-[9px] font-mono uppercase tracking-widest font-bold transition-all ${
-                          isSelected
-                            ? 'bg-[var(--color-ink)] text-white border-[var(--color-ink)] shadow-[2px_2px_0_0_var(--color-accent-terracotta)]'
-                            : 'bg-white text-[var(--color-ink)] border-[var(--color-ink)]/20 hover:border-[var(--color-ink)]'
-                        }`}
-                      >
-                        <span>{cat.name}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 mt-1">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedLogger('mati')}
-                    className={`py-3 px-1 sm:px-2 text-[9px] sm:text-[10px] whitespace-nowrap font-mono uppercase font-bold border-2 transition-all ${
-                      selectedLogger === 'mati'
-                        ? 'bg-[var(--color-ink)] text-white border-[var(--color-ink)] shadow-[2px_2px_0_0_var(--color-accent-mustard)]'
-                        : 'bg-white text-[var(--color-ink)] border-[var(--color-ink)]/20'
-                    }`}
-                  >
-                    Paid by Mati
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setSelectedLogger('belu')}
-                    className={`py-3 px-1 sm:px-2 text-[9px] sm:text-[10px] whitespace-nowrap font-mono uppercase font-bold border-2 transition-all ${
-                      selectedLogger === 'belu'
-                        ? 'bg-[var(--color-ink)] text-white border-[var(--color-ink)] shadow-[2px_2px_0_0_var(--color-accent-terracotta)]'
-                        : 'bg-white text-[var(--color-ink)] border-[var(--color-ink)]/20'
-                    }`}
-                  >
-                    Paid by Belu
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 mt-1">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedPaymentMethod('transferencia')}
-                    className={`py-3 px-1 sm:px-2 text-[9px] sm:text-[10px] whitespace-nowrap font-mono uppercase font-bold border-2 transition-all ${
-                      selectedPaymentMethod === 'transferencia'
-                        ? 'bg-[var(--color-ink)] text-white border-[var(--color-ink)] shadow-[2px_2px_0_0_var(--color-ink)]'
-                        : 'bg-white text-[var(--color-ink)] border-[var(--color-ink)]/20'
-                    }`}
-                  >
-                    Transferencia
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setSelectedPaymentMethod('efectivo')}
-                    className={`py-3 px-1 sm:px-2 text-[9px] sm:text-[10px] whitespace-nowrap font-mono uppercase font-bold border-2 transition-all ${
-                      selectedPaymentMethod === 'efectivo'
-                        ? 'bg-[var(--color-ink)] text-white border-[var(--color-ink)] shadow-[2px_2px_0_0_var(--color-accent-mustard)]'
-                        : 'bg-white text-[var(--color-ink)] border-[var(--color-ink)]/20'
-                    }`}
-                  >
-                    Efectivo (Cash)
-                  </button>
-                </div>
-              </>
-            ) : (
-              /* INCOME VIEW */
-              <div className="space-y-3">
-                <div className="grid grid-cols-4 gap-1">
-                  <button
-                    type="button"
-                    onClick={() => { setIncomeType('cuota'); setAmountStr('45000'); }}
-                    className={`py-3 px-1 text-[8px] sm:text-[9px] font-mono uppercase font-bold border-2 flex flex-col items-center justify-center gap-1 transition-all ${
-                      incomeType === 'cuota'
-                        ? 'bg-[var(--color-ink)] text-[var(--color-accent-mustard)] border-[var(--color-ink)]'
-                        : 'bg-white text-[var(--color-ink)] border-[var(--color-ink)]/20'
-                    }`}
-                  >
-                    <Users size={14} /> <span>Dues</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setIncomeType('suplemento'); setAmountStr('29000'); }}
-                    className={`py-3 px-1 text-[8px] sm:text-[9px] font-mono uppercase font-bold border-2 flex flex-col items-center justify-center gap-1 transition-all ${
-                      incomeType === 'suplemento'
-                        ? 'bg-[var(--color-ink)] text-[var(--color-accent-mustard)] border-[var(--color-ink)]'
-                        : 'bg-white text-[var(--color-ink)] border-[var(--color-ink)]/20'
-                    }`}
-                  >
-                    <Zap size={14} /> <span>Store</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setIncomeType('assurant'); setAmountStr('1200000'); }}
-                    className={`py-3 px-1 text-[8px] sm:text-[9px] font-mono uppercase font-bold border-2 flex flex-col items-center justify-center gap-1 transition-all ${
-                      incomeType === 'assurant'
-                        ? 'bg-[var(--color-ink)] text-[var(--color-accent-mustard)] border-[var(--color-ink)]'
-                        : 'bg-white text-[var(--color-ink)] border-[var(--color-ink)]/20'
-                    }`}
-                  >
-                    <Building2 size={14} /> <span>Salary</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setIncomeType('otro'); setAmountStr('0'); setMemberName(''); }}
-                    className={`py-3 px-1 text-[8px] sm:text-[9px] font-mono uppercase font-bold border-2 flex flex-col items-center justify-center gap-1 transition-all ${
-                      incomeType === 'otro'
-                        ? 'bg-[var(--color-ink)] text-[var(--color-accent-mustard)] border-[var(--color-ink)]'
-                        : 'bg-white text-[var(--color-ink)] border-[var(--color-ink)]/20'
-                    }`}
-                  >
-                    <span className="font-bold text-lg mb-[-4px]">+</span> <span>Other</span>
-                  </button>
-                </div>
-
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={incomeType}
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.18, ease: EASE_OUT }}
+                className="mt-3"
+              >
                 {(incomeType === 'cuota' || incomeType === 'otro') && (
                   <input
                     type="text"
-                    placeholder={incomeType === 'cuota' ? "Member full name..." : "Description (e.g. Carry-over Cash)"}
+                    aria-label={incomeType === 'cuota' ? 'Member name' : 'Description'}
+                    placeholder={incomeType === 'cuota' ? 'Member name' : 'What is this?'}
                     value={memberName}
-                    onChange={e => setMemberName(e.target.value)}
-                    className="w-full bg-white border-2 border-[var(--color-ink)] px-3 py-3 text-sm font-mono uppercase tracking-widest text-[var(--color-ink)] placeholder-[var(--color-ink)]/30 outline-none focus:shadow-[2px_2px_0_0_var(--color-ink)]"
+                    onChange={(e) => setMemberName(e.target.value)}
+                    className="w-full h-12 bg-[var(--color-paper-hi)] border-2 border-[var(--color-ink)] px-3 text-sm text-[var(--color-ink)] placeholder-[var(--color-ink)]/35 outline-none focus:block-shadow-sm transition-shadow"
                   />
                 )}
                 {incomeType === 'suplemento' && (
                   <select
+                    aria-label="Product"
                     value={selectedSupplement}
-                    onChange={e => {
+                    onChange={(e) => {
                       setSelectedSupplement(e.target.value);
-                      const sup = supplements.find(s => s.name === e.target.value);
+                      const sup = SUPPLEMENTS.find((s) => s.name === e.target.value);
                       if (sup) setAmountStr(String(sup.defaultPrice));
                     }}
-                    className="w-full bg-white border-2 border-[var(--color-ink)] px-3 py-3 text-sm font-mono uppercase tracking-widest text-[var(--color-ink)] outline-none focus:shadow-[2px_2px_0_0_var(--color-ink)] appearance-none"
+                    className="w-full h-12 bg-[var(--color-paper-hi)] border-2 border-[var(--color-ink)] px-3 text-sm text-[var(--color-ink)] outline-none"
                   >
-                    {supplements.map(sup => (
-                      <option key={sup.id} value={sup.name}>
-                        {sup.name}
-                      </option>
+                    {SUPPLEMENTS.map((sup) => (
+                      <option key={sup.id} value={sup.name}>{sup.name}</option>
                     ))}
                   </select>
                 )}
                 {incomeType === 'assurant' && (
-                  <div className="w-full text-center text-[9px] font-mono uppercase opacity-50">
-                    Use keypad to edit actual month's salary amount
-                  </div>
+                  <p className="text-[10px] font-mono uppercase tracking-[0.14em] text-[var(--color-ink-3)] text-center py-2">
+                    Adjust this month's figure on the keypad
+                  </p>
                 )}
-              </div>
-            )}
+              </motion.div>
+            </AnimatePresence>
+          </fieldset>
+        )}
 
-            {/* Quick Booster Chips */}
-            <div className="grid grid-cols-4 gap-1 sm:gap-1.5 py-1">
-              {[5000, 10000, 20000, 50000].map(val => (
-                <button
-                  key={val}
-                  type="button"
-                  onClick={() => handleAddQuickAmount(val)}
-                  className="py-2.5 border border-[var(--color-ink)]/20 hover:bg-[var(--color-ink)]/5 active:bg-[var(--color-ink)]/10 text-[9px] sm:text-[10px] font-mono uppercase font-bold text-[var(--color-ink)] transition-colors whitespace-nowrap"
-                >
-                  +{Number(val).toLocaleString('en-US')}
-                </button>
-              ))}
-            </div>
-
-            {/* Tactile Numeric Keypad */}
-            <div className="grid grid-cols-3 gap-1">
-              {['1', '2', '3', '4', '5', '6', '7', '8', '9', '000', '0'].map(key => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => handleKeyPress(key)}
-                  className="py-3 sm:py-4 bg-white border-2 border-[var(--color-ink)] active:bg-[var(--color-ink)] active:text-white text-lg font-mono font-bold text-[var(--color-ink)] transition-colors duration-0 shadow-[2px_2px_0_0_var(--color-ink)] active:shadow-none active:translate-y-[2px] active:translate-x-[2px]"
-                >
-                  {key}
-                </button>
-              ))}
-
-              <button
-                type="button"
-                onClick={handleDeleteDigit}
-                className="py-3 sm:py-4 bg-[var(--color-accent-terracotta)] border-2 border-[var(--color-ink)] active:bg-[var(--color-ink)] text-white flex items-center justify-center transition-colors duration-0 shadow-[2px_2px_0_0_var(--color-ink)] active:shadow-none active:translate-y-[2px] active:translate-x-[2px]"
-              >
-                <Delete size={18} />
-              </button>
-            </div>
-
-            {/* Confirm Button */}
-            <button
-              type="submit"
-              disabled={currentAmount <= 0}
-              className="w-full mt-1 sm:mt-2 py-4 sm:py-5 bg-[var(--color-ink)] text-white font-mono font-bold text-xs sm:text-sm uppercase tracking-widest flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-40 disabled:scale-100"
+        {/* Boosters */}
+        <div className="grid grid-cols-4 gap-1.5">
+          {[5000, 10000, 20000, 50000].map((val) => (
+            <motion.button
+              key={val}
+              type="button"
+              whileTap={PRESS_HARD}
+              onClick={() => { setAmountStr((p) => String((parseInt(p, 10) || 0) + val)); tick(6); }}
+              className="h-11 border border-[var(--color-ink)]/25 text-[10px] font-mono uppercase font-bold text-[var(--color-ink-2)] hover:bg-[var(--color-ink)]/6 active:bg-[var(--color-ink)]/12 transition-colors"
             >
-              <Check size={18} strokeWidth={3} />
-              <span>Confirm Transaction</span>
+              +{(val / 1000)}k
+            </motion.button>
+          ))}
+        </div>
+
+        {/* Keypad */}
+        <div className="grid grid-cols-3 gap-1.5">
+          {['1', '2', '3', '4', '5', '6', '7', '8', '9', '000', '0'].map((key) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => handleKeyPress(key)}
+              className="h-14 bg-[var(--color-paper-hi)] border-2 border-[var(--color-ink)] text-lg font-mono font-bold text-[var(--color-ink)] block-shadow-sm active:bg-[var(--color-ink)] active:text-white active:shadow-none active:translate-x-[2px] active:translate-y-[2px] transition-[background-color,box-shadow,transform] duration-75"
+            >
+              {key}
             </button>
-          </form>
-        </motion.div>
-      </div>
-    </AnimatePresence>
+          ))}
+          <button
+            type="button"
+            onClick={handleDeleteDigit}
+            aria-label="Delete last digit"
+            className="h-14 bg-[var(--color-terracotta)] border-2 border-[var(--color-ink)] text-white flex items-center justify-center block-shadow-sm active:bg-[var(--color-ink)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] transition-[background-color,box-shadow,transform] duration-75"
+          >
+            <Delete size={18} />
+          </button>
+        </div>
+      </form>
+    </Sheet>
   );
 };

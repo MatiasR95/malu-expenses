@@ -19,6 +19,9 @@ import {
 } from '../data/initialData';
 import { formatARS, formatMonthName, getCurrentMonthKey } from '../utils/currency';
 import { FinanceAPI } from '../api/client';
+import { tick } from '../utils/haptics';
+
+export type SyncStatus = 'idle' | 'syncing' | 'ok' | 'error';
 
 interface BankConnectionState {
   connected: boolean;
@@ -49,6 +52,11 @@ interface FinanceContextType {
   autoSyncEnabled: boolean;
   toggleAutoSync: () => void;
   bankConnections: Record<PaymentPlatform, BankConnectionState>;
+  /** Backend wiring, surfaced so the UI can explain where figures come from. */
+  syncStatus: SyncStatus;
+  lastSyncedAt: number | null;
+  isBackendConfigured: boolean;
+  syncNow: () => Promise<void>;
 
   addExpense: (expense: Omit<Expense, 'id' | 'createdAt'>) => Expense;
   updateExpense: (id: string, expense: Partial<Omit<Expense, 'id' | 'createdAt'>>) => void;
@@ -368,6 +376,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const [liveEvents, setLiveEvents] = useState<LiveSyncEvent[]>([]);
   const [activeIslandEvent, setActiveIslandEvent] = useState<LiveSyncEvent | null>(null);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
+  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
 
   const bankConnections: Record<PaymentPlatform, BankConnectionState> = {
     mercadopago: { connected: true, name: 'Mercado Pago', lastSync: 'Live', count: 18 },
@@ -388,10 +398,26 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const pendingSyncs = React.useRef(0);
 
   // Live Sync Engine
-  const performSync = useCallback(async () => {
-    if (!autoSyncEnabled || pendingSyncs.current > 0) return;
+  const runSync = useCallback(async () => {
+    // A write is in flight; pulling now would clobber it with stale rows.
+    if (pendingSyncs.current > 0) return;
+    if (!FinanceAPI.isConfigured()) {
+      setSyncStatus('idle');
+      return;
+    }
+
+    setSyncStatus('syncing');
     const data = await FinanceAPI.fetchAll();
-    if (data && pendingSyncs.current === 0) {
+
+    if (!data) {
+      // Distinguish "the sheet is empty" (a real, valid state) from "the
+      // request failed" -- the old code treated both as nothing-to-do, so a
+      // dropped connection looked identical to a healthy empty ledger.
+      setSyncStatus('error');
+      return;
+    }
+
+    if (pendingSyncs.current === 0) {
       setExpenses(data.expenses);
       setIncomes(data.incomes);
       
@@ -409,14 +435,20 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         });
       });
     }
-  }, [autoSyncEnabled]);
 
-  // Initial load and periodic polling
+    setSyncStatus('ok');
+    setLastSyncedAt(Date.now());
+  }, []);
+
+  const syncNow = useCallback(async () => { await runSync(); }, [runSync]);
+
+  // Initial load, then poll only while auto-sync is on.
   useEffect(() => {
-    performSync();
-    const interval = setInterval(performSync, 15000); // 15s poll
+    runSync();
+    if (!autoSyncEnabled) return;
+    const interval = setInterval(runSync, 15000); // 15s poll
     return () => clearInterval(interval);
-  }, [performSync]);
+  }, [runSync, autoSyncEnabled]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, activeUser); }, [activeUser]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.USER_FILTER, userFilter); }, [userFilter]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.ACTIVE_TAB, activeTab); }, [activeTab]);
@@ -425,16 +457,16 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const setActiveUser = (user: UserId) => setActiveUserState(user);
   const setUserFilter = (filter: UserFilter) => {
     setUserFilterState(filter);
-    if ('vibrate' in navigator) navigator.vibrate(8);
+    tick(8);
   };
   const setActiveTab = (tab: AppTab) => {
     setActiveTabState(tab);
-    if ('vibrate' in navigator) navigator.vibrate(8);
+    tick(8);
   };
 
   const toggleAutoSync = () => {
     setAutoSyncEnabled(prev => !prev);
-    if ('vibrate' in navigator) navigator.vibrate(15);
+    tick(15);
   };
 
   const showIslandBanner = useCallback((event: LiveSyncEvent) => {
@@ -733,6 +765,10 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         autoSyncEnabled,
         toggleAutoSync,
         bankConnections,
+        syncStatus,
+        lastSyncedAt,
+        isBackendConfigured: FinanceAPI.isConfigured(),
+        syncNow,
         addExpense,
         updateExpense,
         deleteExpense,

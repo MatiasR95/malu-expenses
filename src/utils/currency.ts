@@ -1,3 +1,17 @@
+/**
+ * Parse a `YYYY-MM-DD` ledger date in LOCAL time.
+ *
+ * `new Date('2026-09-01')` is defined to parse as UTC midnight. Read back with
+ * the local getters in Argentina (UTC-3) that is 31 August, so every date in
+ * the app rendered a day early and the revenue chart plotted day 1 at the far
+ * right of the month. Splitting the parts and using the numeric constructor
+ * keeps the date the user actually typed.
+ */
+export function parseLocalDate(iso: string): Date {
+  const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+}
+
 export function formatARS(amount: number, options?: { compact?: boolean }): string {
   if (options?.compact) {
     if (Math.abs(amount) >= 1_000_000) {

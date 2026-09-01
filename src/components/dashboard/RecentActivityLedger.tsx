@@ -1,121 +1,138 @@
-﻿import React from 'react';
+import React, { useState } from 'react';
+import { motion } from 'framer-motion';
+import { format } from 'date-fns';
+import { ArrowUpRight, Plus, ChevronDown } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { Expense } from '../../types/finance';
-import { format } from 'date-fns';
-import { ShoppingBag, Heart, Coffee, Car, Utensils, Zap, Gamepad2, Home, Receipt, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { CategoryIcon } from '../common/CategoryIcon';
+import { Amount } from '../common/Amount';
+import { parseLocalDate } from '../../utils/currency';
+import { PRESS } from '../../lib/motion';
 
 interface Props {
   onExpenseClick: (expense: Expense) => void;
+  onAdd: () => void;
 }
 
-const getCategoryIcon = (categoryId: string) => {
-  switch (categoryId) {
-    case 'housing': return <Home size={14} strokeWidth={2} />;
-    case 'food': return <Utensils size={14} strokeWidth={2} />;
-    case 'transport': return <Car size={14} strokeWidth={2} />;
-    case 'health': return <Heart size={14} strokeWidth={2} />;
-    case 'entertainment': return <Gamepad2 size={14} strokeWidth={2} />;
-    case 'shopping': return <ShoppingBag size={14} strokeWidth={2} />;
-    case 'utilities': return <Zap size={14} strokeWidth={2} />;
-    case 'coffee': return <Coffee size={14} strokeWidth={2} />;
-    default: return <Receipt size={14} strokeWidth={2} />;
-  }
-};
+const PAGE = 8;
 
-const getBlockColor = (index: number) => {
-  const colors = [
-    'bg-[var(--color-block-1)] text-white/90', 
-    'bg-[var(--color-block-2)] text-white/90',
-    'bg-[var(--color-block-3)] text-white/90',
-    'bg-[var(--color-block-4)] text-[var(--color-ink)]'
-  ];
-  return colors[index % colors.length];
-};
+/** Olive stack, darkest first. Alternating tones read as a printed ledger. */
+const ROW_TONES = [
+  'bg-[var(--color-olive-2)] text-white',
+  'bg-[var(--color-olive-3)] text-white',
+  'bg-[var(--color-olive-4)] text-white',
+  'bg-[var(--color-olive-5)] text-[var(--color-ink)]',
+];
 
-export const RecentActivityLedger: React.FC<Props> = ({ onExpenseClick }) => {
+export const RecentActivityLedger: React.FC<Props> = ({ onExpenseClick, onAdd }) => {
   const { expenses, categories, userFilter } = useFinance();
+  const [visible, setVisible] = useState(PAGE);
 
-  const filteredExpenses = expenses
-    .filter(e => userFilter === 'all' || e.loggedBy === userFilter)
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 10);
+  const filtered = expenses
+    .filter((e) => userFilter === 'all' || e.loggedBy === userFilter)
+    .sort((a, b) => parseLocalDate(b.date).getTime() - parseLocalDate(a.date).getTime());
 
-  if (filteredExpenses.length === 0) {
+  const rows = filtered.slice(0, visible);
+
+  if (filtered.length === 0) {
     return (
-      <div className="w-full h-32 flex items-center justify-center bg-[var(--color-block-2)] text-white/50 text-sm font-mono uppercase tracking-widest">
-        No Activity
-      </div>
+      <section className="w-full bg-[var(--color-olive-2)] text-white px-6 py-12 flex flex-col items-center text-center gap-4">
+        <span className="w-12 h-12 border-2 border-white/25 flex items-center justify-center">
+          <ArrowUpRight size={22} strokeWidth={1.5} className="text-white/60" />
+        </span>
+        <div>
+          <h3 className="font-display font-medium text-xl">Nothing logged yet</h3>
+          <p className="text-[11px] font-mono uppercase tracking-[0.16em] text-white/50 mt-1.5">
+            {userFilter === 'all' ? 'This month is still blank' : `Nothing under ${userFilter}`}
+          </p>
+        </div>
+        <motion.button
+          type="button"
+          onClick={onAdd}
+          whileTap={PRESS}
+          className="mt-1 h-11 px-5 bg-[var(--color-mustard)] text-[var(--color-ink)] text-[10px] font-mono uppercase tracking-[0.2em] font-bold flex items-center gap-2"
+        >
+          <Plus size={14} strokeWidth={3} />
+          Log the first one
+        </motion.button>
+      </section>
     );
   }
 
   return (
-    <div className="w-full flex flex-col">
-      {filteredExpenses.map((expense, i) => {
-        const category = categories.find(c => c.id === expense.categoryId);
-        const colorClasses = getBlockColor(i);
-        const [intPart, decPart] = expense.amount.toFixed(1).split('.');
-        
-        // Mocking an "isIncome" flag for demonstration or if expenses array actually contains incomes
-        // Real implementation depends on if `expenses` array holds both, but assuming standard Expense object
-        // We will just use delicate ArrowUpRight for expense.
-        const isExpense = true; 
+    <section className="w-full flex flex-col">
+      <div className="px-5 py-3 flex items-center justify-between">
+        <h2 className="text-[10px] font-mono uppercase tracking-[0.24em] text-[var(--color-ink-3)]">
+          Recent activity
+        </h2>
+        <span className="text-[10px] font-mono tabular text-[var(--color-ink-3)]">
+          {filtered.length}
+        </span>
+      </div>
 
-        return (
-          <motion.div
-            key={expense.id}
-            initial={{ opacity: 0, x: -10 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: i * 0.05 }}
-            onClick={() => onExpenseClick(expense)}
-            className={`w-full px-6 py-5 flex items-center justify-between cursor-pointer hover:brightness-110 active:brightness-90 transition-all ${colorClasses}`}
-          >
-            {/* Left side: Category Pill + Title */}
-            <div className="flex flex-col gap-1.5">
-              <span className="font-display font-medium text-lg tracking-wide leading-tight flex items-center gap-2">
-                {expense.note || category?.name || 'Expense'}
-              </span>
-              
-              {/* Clever minimal category stamp */}
-              <div className="flex items-center gap-1.5 opacity-60">
-                <div className="w-5 h-5 rounded-full border border-current flex items-center justify-center mix-blend-overlay">
-                  {getCategoryIcon(expense.categoryId)}
-                </div>
-                <span className="text-[10px] font-mono uppercase tracking-widest">
-                  {category?.name || 'Uncategorized'}
-                </span>
-              </div>
-            </div>
+      <ul className="w-full flex flex-col">
+        {rows.map((expense, i) => {
+          const category = categories.find((c) => c.id === expense.categoryId);
+          return (
+            <li
+              key={expense.id}
+              className="reveal-item"
+              style={{ '--i': i % PAGE } as React.CSSProperties}
+            >
+                <motion.button
+                  type="button"
+                  whileTap={PRESS}
+                  onClick={() => onExpenseClick(expense)}
+                  className={`w-full px-5 py-4 flex items-center justify-between gap-4 text-left rule-light hover:brightness-[1.08] transition-[filter] ${
+                    ROW_TONES[i % ROW_TONES.length]
+                  }`}
+                >
+                  <span className="flex items-center gap-3.5 min-w-0">
+                    <span className="w-9 h-9 shrink-0 border border-current/30 flex items-center justify-center opacity-80">
+                      <CategoryIcon name={category?.icon ?? 'Tag'} size={16} strokeWidth={1.75} />
+                    </span>
+                    <span className="min-w-0 flex flex-col">
+                      <span className="font-display font-medium text-[15px] tracking-wide leading-snug truncate">
+                        {expense.note || category?.name || 'Expense'}
+                      </span>
+                      <span className="text-[9px] font-mono uppercase tracking-[0.14em] opacity-55 mt-1 flex items-center gap-1.5">
+                        <span className="truncate">{category?.name ?? 'Uncategorised'}</span>
+                        <span className="opacity-50 shrink-0">/</span>
+                        <span className="shrink-0">{expense.loggedBy}</span>
+                      </span>
+                    </span>
+                  </span>
 
-            {/* Right side: Amount + Delicate Indicator */}
-            <div className="flex flex-col items-end">
-              <div className="font-display font-semibold text-xl tracking-wide flex items-center">
-                {/* Delicate arrow indicator for Expense vs Income */}
-                {isExpense ? (
-                  <ArrowUpRight size={14} strokeWidth={2} className="opacity-40 mr-1" />
-                ) : (
-                  <ArrowDownLeft size={14} strokeWidth={2} className="opacity-80 text-[var(--color-accent-mustard)] mr-1" />
-                )}
-                
-                <span className="text-base mr-0.5 opacity-70">$</span>
-                <span>{intPart}</span>
-                <span className="text-base opacity-70">.{decPart}</span>
-              </div>
-              <span className="text-[10px] font-mono uppercase tracking-widest opacity-50 mt-1">
-                {format(new Date(expense.date), 'hh:mm a')}
-              </span>
-            </div>
-          </motion.div>
-        );
-      })}
-      
-      {/* Show More Block */}
-      {expenses.length > 10 && (
-        <button className="w-full py-5 bg-[var(--color-bg-sage)] text-[var(--color-ink)]/60 text-xs font-mono uppercase tracking-widest hover:bg-[var(--color-ink)]/5 transition-colors border-t border-[var(--color-ink)]/10">
-          Show More
-        </button>
+                  {/* Date lives under the figure rather than in the metadata
+                      run -- on a 375px row the left column has to carry the
+                      title, and a third segment there pushed every label into
+                      an ellipsis. */}
+                  <span className="shrink-0 flex flex-col items-end gap-1">
+                    <span className="flex items-center gap-1.5">
+                      <ArrowUpRight size={12} strokeWidth={2.5} className="opacity-40" />
+                      <Amount value={expense.amount} size="md" />
+                    </span>
+                    <span className="text-[9px] font-mono uppercase tracking-[0.14em] opacity-45">
+                      {format(parseLocalDate(expense.date), 'dd MMM')}
+                    </span>
+                  </span>
+                </motion.button>
+            </li>
+          );
+        })}
+      </ul>
+
+      {visible < filtered.length && (
+        <motion.button
+          type="button"
+          whileTap={PRESS}
+          onClick={() => setVisible((v) => v + PAGE)}
+          className="w-full h-14 bg-[var(--color-paper)] text-[var(--color-ink-2)] text-[10px] font-mono uppercase tracking-[0.2em] hover:bg-[var(--color-ink)]/6 transition-colors flex items-center justify-center gap-2"
+        >
+          <ChevronDown size={13} />
+          Show {Math.min(PAGE, filtered.length - visible)} more
+        </motion.button>
       )}
-    </div>
+    </section>
   );
 };

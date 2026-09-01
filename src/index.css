@@ -1,66 +1,231 @@
-﻿@import url('/fonts/clash-display.css');
+@import url('/fonts/clash-display.css');
+@import url('/fonts/montserrat.css');
 @import "tailwindcss";
+
+/* JetBrains Mono — self-hosted variable, tabular figures for the ledger.
+   Same rule as Montserrat/Clash: our own domain, no third-party handshake. */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: swap;
+  src: url('/fonts/jetbrains-mono-var-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: swap;
+  src: url('/fonts/jetbrains-mono-var-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ---------------------------------------------------------------------------
+   Design tokens.
+
+   Industrial ledger: sage paper ground, ink print, an olive block stack for
+   tonal rows, and exactly two signal colours (mustard = inflow, terracotta =
+   outflow). Everything else is a tint of those. The paper/raised steps exist
+   so cards can lift off the ground -- flat sage-on-sage was the reason the
+   old build read washed out.
+--------------------------------------------------------------------------- */
+@theme {
+  /* Ground */
+  --color-sage:        #c1c4b1;
+  --color-paper:       #cdd0bf;  /* one step up from ground: raised surfaces */
+  --color-paper-hi:    #dcdecf;  /* highest paper: input fields, hero cards  */
+
+  /* Print */
+  --color-ink:         #151613;
+  --color-ink-2:       #3d4038;  /* secondary copy, still AA on sage        */
+  --color-ink-3:       #5f6357;  /* tertiary / metadata                     */
+
+  /* Signals */
+  --color-mustard:     #dec956;
+  --color-mustard-dp:  #b09b28;  /* AA-safe mustard for text on light paper */
+  --color-terracotta:  #d97052;
+  --color-terracotta-dp: #b04c2f;
+
+  /* Olive block stack (ledger rows, darkest -> lightest) */
+  --color-olive-1:     #3b4137;
+  --color-olive-2:     #4a5045;
+  --color-olive-3:     #5d6656;
+  --color-olive-4:     #6f7a69;
+  --color-olive-5:     #879281;
+
+  /* Type */
+  --font-display: 'Clash Display', 'Archivo', system-ui, sans-serif;
+  --font-body:    'Montserrat', system-ui, -apple-system, sans-serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+
+  /* Motion — one curve vocabulary for the whole app */
+  --ease-out-expo:  cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-q:  cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* Chrome heights, so content padding can reference the real number */
+  --nav-h: 64px;
+}
 
 @layer base {
   :root {
-    /* Industrial Brutalist Palette (Images 4 & 5) */
-    --color-bg-sage: #c1c4b1;
-    --color-ink: #151613;
-    
-    /* Accents */
-    --color-accent-mustard: #dec956;
-    --color-accent-terracotta: #d97052;
-    
-    /* Flush Blocks (Stacked Olive Shades) */
-    --color-block-1: #4a5045; /* Darkest Olive */
-    --color-block-2: #545c4f; 
-    --color-block-3: #6f7a69;
-    --color-block-4: #879281; /* Lightest Olive */
-    
-    /* Typography */
-    --font-display: 'Clash Display', sans-serif;
-    --font-body: 'Plus Jakarta Sans', system-ui, sans-serif;
-    --font-mono: 'Space Grotesk', monospace; /* Premium Geometric Mono Replacement */
+    /* Legacy aliases — older components still reference these names. */
+    --color-bg-sage: var(--color-sage);
+    --color-accent-mustard: var(--color-mustard);
+    --color-accent-terracotta: var(--color-terracotta);
+    --color-block-1: var(--color-olive-2);
+    --color-block-2: var(--color-olive-3);
+    --color-block-3: var(--color-olive-4);
+    --color-block-4: var(--color-olive-5);
+  }
+
+  html {
+    background-color: var(--color-sage);
+    /* Stop iOS rubber-band from showing white behind the fixed nav. */
+    overscroll-behavior-y: none;
   }
 
   body {
-    background-color: var(--color-bg-sage);
+    background-color: var(--color-sage);
     color: var(--color-ink);
     font-family: var(--font-body);
+    font-weight: 500;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     letter-spacing: -0.01em;
+    overscroll-behavior-y: none;
+    /* `clip`, not `hidden`: overflow-x:hidden turns the element into a scroll
+       container, and `position: sticky` then resolves against *that* rather
+       than the viewport -- which is why the masthead used to scroll away. */
+    overflow-x: clip;
+  }
+
+  /* Every figure in a finance app is tabular: columns line up, digits do not
+     jitter as values animate. */
+  .font-mono,
+  [class*="tabular"] {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+
+  button, a, [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Visible, on-brand keyboard focus everywhere. */
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+  }
+  .on-dark :focus-visible {
+    outline-color: var(--color-mustard);
+  }
+
+  input, select, textarea {
+    font-family: var(--font-body);
+  }
+  /* iOS zooms the page when a focused field is under 16px. */
+  input, select, textarea {
+    font-size: max(16px, 1em);
   }
 }
 
 @layer utilities {
-  .font-display {
-    font-family: var(--font-display);
-  }
-  .font-mono {
-    font-family: var(--font-mono);
-  }
-  
-  /* Flush block structural utilities */
-  .flush-block {
-    @apply w-full rounded-none;
-  }
-  
-  /* Decimal styling for huge numbers */
+  .font-display { font-family: var(--font-display); }
+  .font-mono    { font-family: var(--font-mono); }
+  .font-body    { font-family: var(--font-body); }
+
+  /* Tabular ledger figures — the app's signature numeral treatment. */
+  .tabular { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+
+  .flush-block { @apply w-full rounded-none; }
+
+  /* Outlined decimal on the hero figures.
+     Knock the glyph out with -webkit-text-fill-color, NOT `color: transparent`:
+     the stroke is drawn in currentColor, so zeroing `color` made the stroke
+     transparent too and the decimal vanished entirely. */
   .decimal-outline {
-    -webkit-text-stroke: 2px var(--color-ink);
-    color: transparent;
+    -webkit-text-stroke: 1.5px currentColor;
+    -webkit-text-fill-color: transparent;
     font-weight: 700;
+    opacity: 0.5;
+  }
+
+  .scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
+  .scrollbar-none::-webkit-scrollbar { display: none; }
+
+  /* Safe-area helpers for the fixed chrome. */
+  .pt-safe { padding-top: max(env(safe-area-inset-top), 0.5rem); }
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+
+  /* Receipt hairline: the one texture in the system, used on ledger edges. */
+  .rule-ink   { box-shadow: inset 0 -1px 0 0 color-mix(in srgb, var(--color-ink) 12%, transparent); }
+  .rule-light { box-shadow: inset 0 -1px 0 0 rgb(255 255 255 / 0.08); }
+
+  /* Pressed-block affordance used by the keypad and primary actions. */
+  .block-shadow  { box-shadow: 3px 3px 0 0 var(--color-ink); }
+  .block-shadow-sm { box-shadow: 2px 2px 0 0 var(--color-ink); }
+}
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-ink) 25%, transparent);
+  border-radius: 2px;
+}
+
+/* Calm fallback: keep state changes, drop the travel. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-  width: 4px;
+/* ---------------------------------------------------------------------------
+   Entrance reveals.
+
+   These are CSS, not JS. Anything that decides whether *content* is visible
+   must not depend on an animation frame loop: a screen whose text starts at
+   opacity 0 and is faded in by script shows nothing at all if that loop is
+   throttled or stalled -- a backgrounded tab, a cold device, an error higher
+   up. CSS animations always settle on their final keyframe, and the
+   reduced-motion rule above collapses them to ~0ms, so the content is on
+   screen either way.
+
+   Framer is still doing the work it is good at: gestures, drag, shared-layout
+   indicators and the sheet transitions -- all of which are interactive, and
+   none of which hide content when they do not run.
+--------------------------------------------------------------------------- */
+@keyframes malu-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
 }
-::-webkit-scrollbar-track {
-  background: transparent;
+@keyframes malu-slide {
+  from { opacity: 0; transform: translateX(var(--slide-from, 20px)); }
+  to   { opacity: 1; transform: none; }
 }
-::-webkit-scrollbar-thumb {
-  background: var(--color-ink);
-  opacity: 0.2;
+@keyframes malu-wipe {
+  from { width: 0; }
+  to   { width: var(--wipe-to, 300px); }
+}
+
+@layer utilities {
+  .reveal {
+    animation: malu-rise 0.5s var(--ease-out-expo) both;
+  }
+  .reveal-x {
+    animation: malu-slide 0.32s var(--ease-out-expo) both;
+  }
+  /* Staggered children. Each row sets its own --i. */
+  .reveal-item {
+    animation: malu-rise 0.42s var(--ease-out-expo) both;
+    animation-delay: calc(var(--i, 0) * 45ms);
+  }
+  .reveal-wipe {
+    animation: malu-wipe 1.05s var(--ease-out-expo) both;
+    animation-delay: 0.1s;
+  }
 }

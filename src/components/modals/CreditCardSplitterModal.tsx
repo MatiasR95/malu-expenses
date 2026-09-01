@@ -1,8 +1,10 @@
 ﻿import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useFinance } from '../../context/FinanceContext';
-import { CreditCard, X, Plus, Trash2, Check, Clipboard, Sparkles } from 'lucide-react';
+import { Plus, Trash2, Check, Clipboard, Sparkles } from 'lucide-react';
 import { UserId } from '../../types/finance';
+import { Sheet } from '../common/Sheet';
+import { PRESS } from '../../lib/motion';
 
 interface SplitItem {
   id: string;
@@ -24,8 +26,6 @@ export const CreditCardSplitterModal: React.FC<Props> = ({ isOpen, onClose }) =>
   const [splitItems, setSplitItems] = useState<SplitItem[]>([
     { id: '1', categoryId: categories[0]?.id || 'shopping', amount: 0, note: '' }
   ]);
-
-  if (!isOpen) return null;
 
   const handleAddItem = () => {
     setSplitItems([
@@ -114,43 +114,29 @@ export const CreditCardSplitterModal: React.FC<Props> = ({ isOpen, onClose }) =>
   };
 
   return (
-    <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-        {/* Backdrop */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={onClose}
-          className="fixed inset-0 bg-[var(--color-bg-sage)]/90 backdrop-blur-md"
-        />
-
-        {/* Modal Card */}
-        <motion.div
-          initial={{ y: '100%' }}
-          animate={{ y: 0 }}
-          exit={{ y: '100%' }}
-          transition={{ type: 'spring', damping: 28, stiffness: 350 }}
-          className="relative w-full max-w-lg bg-[var(--color-bg-sage)] border-2 border-[var(--color-ink)] p-5 shadow-[4px_4px_0_0_var(--color-ink)] z-10 max-h-[92vh] flex flex-col overflow-y-auto"
+    <Sheet
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Card batch"
+      subtitle="Split one statement into rows"
+      tone="terracotta"
+      footer={
+        <motion.button
+          type="button"
+          whileTap={PRESS}
+          onClick={handlePostAllExpenses}
+          disabled={totalSplit <= 0}
+          className="w-full h-14 bg-[var(--color-ink)] text-white font-mono font-bold text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-2 disabled:opacity-35"
         >
-          <div className="flex items-center justify-between mb-4 border-b-2 border-[var(--color-ink)] pb-3">
-            <div className="flex items-center gap-2 text-[var(--color-ink)]">
-              <CreditCard size={18} />
-              <h2 className="text-sm font-mono font-bold uppercase tracking-widest">
-                Credit Card Splitter
-              </h2>
-            </div>
-            <button
-              onClick={onClose}
-              className="text-[var(--color-ink)] hover:scale-110 transition-transform"
-            >
-              <X size={20} />
-            </button>
-          </div>
-
-          <div className="space-y-3">
+          <Check size={17} strokeWidth={3} />
+          <span>Post {splitItems.length} {splitItems.length === 1 ? 'row' : 'rows'}</span>
+        </motion.button>
+      }
+    >
+      <div className="px-4 py-4">
+        <div className="space-y-3">
             {/* Parser Input */}
-            <div className="p-3 bg-white border-2 border-[var(--color-ink)] space-y-2">
+            <div className="p-3 bg-[var(--color-paper-hi)] border-2 border-[var(--color-ink)] space-y-2">
               <div className="flex items-center justify-between">
                 <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--color-ink)] font-bold flex items-center gap-1.5">
                   <Sparkles size={12} />
@@ -234,7 +220,7 @@ export const CreditCardSplitterModal: React.FC<Props> = ({ isOpen, onClose }) =>
                   return (
                     <div
                       key={item.id}
-                      className="p-2 bg-white border-2 border-[var(--color-ink)] space-y-1"
+                      className="p-2 bg-[var(--color-paper-hi)] border-2 border-[var(--color-ink)] space-y-1"
                     >
                       <div className="flex items-center gap-1">
                         <select
@@ -279,18 +265,8 @@ export const CreditCardSplitterModal: React.FC<Props> = ({ isOpen, onClose }) =>
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={handlePostAllExpenses}
-              disabled={totalSplit <= 0}
-              className="w-full mt-2 py-4 bg-[var(--color-ink)] text-white font-mono font-bold text-sm uppercase tracking-widest flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-40"
-            >
-              <Check size={18} strokeWidth={3} />
-              <span>Post {splitItems.length} Slices</span>
-            </button>
-          </div>
-        </motion.div>
+        </div>
       </div>
-    </AnimatePresence>
+    </Sheet>
   );
 };
