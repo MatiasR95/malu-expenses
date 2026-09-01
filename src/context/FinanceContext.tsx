@@ -392,8 +392,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (!autoSyncEnabled || pendingSyncs.current > 0) return;
     const data = await FinanceAPI.fetchAll();
     if (data && pendingSyncs.current === 0) {
-      if (data.expenses.length > 0) setExpenses(data.expenses);
-      if (data.incomes.length > 0) setIncomes(data.incomes);
+      setExpenses(data.expenses);
+      setIncomes(data.incomes);
       
       // Merge recurring statuses
       setRecurringCommitments(prev => {
