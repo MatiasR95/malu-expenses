@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Delete, Check, Users, Zap, Building2, Plus } from 'lucide-react';
+import { Delete, Check, Users, Zap, Building2, PiggyBank } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { Sheet } from '../common/Sheet';
 import { CategoryIcon } from '../common/CategoryIcon';
@@ -15,7 +15,7 @@ interface Props {
   initialMode?: 'expense' | 'income';
 }
 
-type IncomeType = 'cuota' | 'suplemento' | 'assurant' | 'otro';
+type IncomeType = 'cuota' | 'suplemento' | 'assurant' | 'carryover';
 
 const SUPPLEMENTS = [
   { id: 's1', name: 'Creatine Monohydrate', defaultPrice: 28000 },
@@ -27,7 +27,7 @@ const INCOME_TYPES: { id: IncomeType; label: string; icon: typeof Users; preset:
   { id: 'cuota', label: 'Dues', icon: Users, preset: 45000 },
   { id: 'suplemento', label: 'Store', icon: Zap, preset: 29000 },
   { id: 'assurant', label: 'Salary', icon: Building2, preset: 1200000 },
-  { id: 'otro', label: 'Other', icon: Plus, preset: 0 },
+  { id: 'carryover', label: 'Carry-over', icon: PiggyBank, preset: 0 },
 ];
 
 /** Two-up segmented choice. Used for payer and payment method. */
@@ -154,9 +154,14 @@ export const QuickAddModal: React.FC<Props> = ({
         notes: 'Assurant Salary', date, createdBy: 'mati',
       });
     } else {
+      /* Its own source, not `assurant`. Filing leftover cash as salary
+         inflated the reported Assurant figure and flipped the Force screen's
+         "salary already logged" check, which then hid the button for logging
+         the real one. */
       addIncome({
-        amount: currentAmount, source: 'assurant', platform: 'efectivo',
-        notes: memberName || 'Manual Cash Addition', date, createdBy: 'mati',
+        amount: currentAmount, source: 'carryover', platform: 'efectivo',
+        notes: memberName.trim() || 'Carry-over from last month',
+        date, createdBy: 'mati',
       });
     }
 
@@ -299,7 +304,7 @@ export const QuickAddModal: React.FC<Props> = ({
                     onClick={() => {
                       setIncomeType(id);
                       setAmountStr(String(preset));
-                      if (id === 'otro') setMemberName('');
+                      if (id === 'carryover') setMemberName('');
                       tick(6);
                     }}
                     className={`min-h-[4.25rem] px-1 py-2 flex flex-col items-center justify-center gap-1.5 border-2 transition-colors duration-150 ${
@@ -324,11 +329,14 @@ export const QuickAddModal: React.FC<Props> = ({
                 transition={{ duration: 0.18, ease: EASE_OUT }}
                 className="mt-3"
               >
-                {(incomeType === 'cuota' || incomeType === 'otro') && (
+                {(incomeType === 'cuota' || incomeType === 'carryover') && (
                   <input
                     type="text"
                     aria-label={incomeType === 'cuota' ? 'Member name' : 'Description'}
-                    placeholder={incomeType === 'cuota' ? 'Member name' : 'What is this?'}
+                    autoComplete="off"
+                    placeholder={
+                      incomeType === 'cuota' ? 'Member name' : 'Carry-over from August'
+                    }
                     value={memberName}
                     onChange={(e) => setMemberName(e.target.value)}
                     className="w-full h-12 bg-[var(--color-paper-hi)] border-2 border-[var(--color-ink)] px-3 text-sm text-[var(--color-ink)] placeholder-[var(--color-ink)]/35 outline-none focus:block-shadow-sm transition-shadow"
@@ -353,6 +361,13 @@ export const QuickAddModal: React.FC<Props> = ({
                 {incomeType === 'assurant' && (
                   <p className="text-[10px] font-mono uppercase tracking-[0.14em] text-[var(--color-ink-3)] text-center py-2">
                     Adjust this month's figure on the keypad
+                  </p>
+                )}
+                {incomeType === 'carryover' && (
+                  <p className="text-[10px] font-mono uppercase tracking-[0.14em] text-[var(--color-ink-3)] leading-relaxed mt-2">
+                    Cash you already had, not money earned this month. It counts
+                    toward what's available to spend but stays out of Force and
+                    salary totals.
                   </p>
                 )}
               </motion.div>

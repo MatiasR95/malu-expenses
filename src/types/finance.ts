@@ -17,7 +17,15 @@ export type PaymentPlatform =
   | 'efectivo'
   | 'otro';
 
-export type IncomeSource = 'force_gym' | 'assurant';
+/**
+ * Where money came from.
+ *
+ * `carryover` is cash left over from a previous month rather than something
+ * earned this one. It needs its own bucket: without it, carry-over had to be
+ * filed under `assurant`, which inflated the reported salary and made the
+ * Force screen believe the month's salary was already logged.
+ */
+export type IncomeSource = 'force_gym' | 'assurant' | 'carryover';
 
 export type ForceIncomeType = 'cuota' | 'suplemento';
 
@@ -104,6 +112,7 @@ export interface MonthlySummary {
   totalExpenses: number;
   netAvailableCash: number;
   assurantTotal: number;
+  carryoverTotal: number;
   forceGymTotal: number;
   forceCuotasCount: number;
   forceCuotasTotal: number;

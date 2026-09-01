@@ -679,6 +679,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     let totalIncome = 0;
     let assurantTotal = 0;
+    let carryoverTotal = 0;
     let forceGymTotal = 0;
     let forceCuotasCount = 0;
     let forceCuotasTotal = 0;
@@ -686,8 +687,14 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     for (const inc of filteredIncomes) {
       totalIncome += inc.amount;
+
+      /* Switch on the source rather than treating "not assurant" as "must be
+         gym" -- that fallback is what silently swept any third kind of inflow
+         into the Force Gym totals. */
       if (inc.source === 'assurant') {
         assurantTotal += inc.amount;
+      } else if (inc.source === 'carryover') {
+        carryoverTotal += inc.amount;
       } else {
         forceGymTotal += inc.amount;
         if (inc.forceDetails?.type === 'cuota') {
@@ -732,6 +739,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       totalExpenses,
       netAvailableCash,
       assurantTotal,
+      carryoverTotal,
       forceGymTotal,
       forceCuotasCount,
       forceCuotasTotal,

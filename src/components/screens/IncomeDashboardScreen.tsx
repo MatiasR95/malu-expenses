@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
-import { Plus, Check, ShoppingBag, Building2, ArrowDownLeft, Pencil } from 'lucide-react';
+import { Plus, Check, ShoppingBag, Building2, PiggyBank, ArrowDownLeft, Pencil } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { FORCE_REGULAR_MEMBERS } from '../../data/initialData';
 import { StepLineChart } from '../dashboard/StepLineChart';
@@ -20,6 +20,11 @@ const FORCE_TARGET = 1_500_000;
 /** Tiles shown in the check-in grid. A gym with years of history has hundreds
     of past members; the ones worth a thumb are the recent, still-unpaid few. */
 const ROSTER_LIMIT = 24;
+
+const OTHER_INFLOWS = [
+  { id: 'assurant' as const, icon: Building2, label: 'Assurant', hint: 'Corporate salary' },
+  { id: 'carryover' as const, icon: PiggyBank, label: 'Carry-over', hint: 'Left over from last month' },
+];
 
 const SUPPLEMENTS = [
   { id: 's1', name: 'Creatine Monohydrate', defaultPrice: 28000 },
@@ -64,7 +69,6 @@ export const IncomeDashboardScreen: React.FC<Props> = ({ onOpenQuickAdd, onEditI
   );
 
   const gymIncomes = monthIncomes.filter((i) => i.source === 'force_gym');
-  const hasSalary = monthIncomes.some((i) => i.source === 'assurant');
 
   /** Members already checked in this month — drives the paid state below. */
   const paidMembers = useMemo(
@@ -247,37 +251,66 @@ export const IncomeDashboardScreen: React.FC<Props> = ({ onOpenQuickAdd, onEditI
         )}
       </section>
 
-      {/* Salary */}
-      <section className="reveal w-full bg-[var(--color-paper-hi)] text-[var(--color-ink)] px-5 py-5 flex items-center justify-between gap-3" style={{ animationDelay: '110ms' }}>
-        <span className="flex items-center gap-3 min-w-0">
-          <span className="w-10 h-10 shrink-0 bg-[var(--color-ink)]/8 flex items-center justify-center">
-            <Building2 size={19} strokeWidth={1.6} />
-          </span>
-          <span className="flex flex-col min-w-0">
-            <span className="font-display font-medium text-lg tracking-wide leading-tight">Assurant</span>
-            <span className="text-[9px] font-mono uppercase tracking-[0.16em] text-[var(--color-ink-3)] mt-0.5">
-              Corporate salary
-            </span>
-          </span>
-        </span>
+      {/* Non-gym inflows.
+          Assurant and carry-over sit together because neither is gym revenue
+          and both need to stay out of the Force totals above. */}
+      <section
+        className="reveal w-full bg-[var(--color-paper-hi)] text-[var(--color-ink)] px-5 py-5"
+        style={{ animationDelay: '110ms' }}
+      >
+        <Rule title="Other inflows" dark={false} />
 
-        {hasSalary ? (
-          <span className="flex flex-col items-end shrink-0">
-            <Amount value={monthlySummary.assurantTotal} size="lg" />
-            <span className="text-[9px] font-mono uppercase tracking-[0.16em] text-[var(--color-ink-3)] mt-1 flex items-center gap-1">
-              <Check size={10} strokeWidth={3} /> Logged
-            </span>
-          </span>
-        ) : (
-          <motion.button
-            type="button"
-            whileTap={PRESS}
-            onClick={() => onOpenQuickAdd('income')}
-            className="shrink-0 h-11 px-4 bg-[var(--color-ink)] text-[var(--color-mustard)] text-[10px] font-mono uppercase tracking-[0.16em] font-bold flex items-center gap-1.5"
-          >
-            <Plus size={13} strokeWidth={3} /> Log
-          </motion.button>
-        )}
+        <ul className="flex flex-col">
+          {OTHER_INFLOWS.map(({ id, icon: Icon, label, hint }, i) => {
+            const total = id === 'assurant'
+              ? monthlySummary.assurantTotal
+              : monthlySummary.carryoverTotal;
+            const logged = total > 0;
+
+            return (
+              <li
+                key={id}
+                style={{ '--i': i } as React.CSSProperties}
+                className={`reveal-item flex items-center justify-between gap-3 py-3 ${
+                  i === 0 ? 'border-b border-[var(--color-ink)]/10' : ''
+                }`}
+              >
+                <span className="flex items-center gap-3 min-w-0">
+                  <span className="w-10 h-10 shrink-0 bg-[var(--color-ink)]/8 flex items-center justify-center">
+                    <Icon size={19} strokeWidth={1.6} />
+                  </span>
+                  <span className="flex flex-col min-w-0">
+                    <span className="font-display font-medium text-lg tracking-wide leading-tight">
+                      {label}
+                    </span>
+                    <span className="text-[9px] font-mono uppercase tracking-[0.16em] text-[var(--color-ink-3)] mt-0.5">
+                      {hint}
+                    </span>
+                  </span>
+                </span>
+
+                {logged ? (
+                  <span className="flex flex-col items-end shrink-0">
+                    <Amount value={total} size="lg" />
+                    <span className="text-[9px] font-mono uppercase tracking-[0.16em] text-[var(--color-ink-3)] mt-1 flex items-center gap-1">
+                      <Check size={10} strokeWidth={3} /> Logged
+                    </span>
+                  </span>
+                ) : (
+                  <motion.button
+                    type="button"
+                    whileTap={PRESS}
+                    onClick={() => onOpenQuickAdd('income')}
+                    aria-label={`Log ${label.toLowerCase()}`}
+                    className="shrink-0 h-11 px-4 bg-[var(--color-ink)] text-[var(--color-mustard)] text-[10px] font-mono uppercase tracking-[0.16em] font-bold flex items-center gap-1.5"
+                  >
+                    <Plus size={13} strokeWidth={3} /> Log
+                  </motion.button>
+                )}
+              </li>
+            );
+          })}
+        </ul>
       </section>
 
       {/* Gym ledger */}
