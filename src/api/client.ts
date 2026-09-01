@@ -2,7 +2,8 @@ import { Expense, Income } from '../types/finance';
 
 // When you deploy the Google Apps Script Web App, replace this URL.
 // Ensure it ends with /exec
-let API_URL = import.meta.env.VITE_APPS_SCRIPT_URL || '';
+const PROD_URL = 'https://script.google.com/macros/s/AKfycbw2nxuGRLptgSn_pOzsLht5Cy_IsGl1nLiMqcyvxK9HiZyk82Cl09LqpBhf4prZDW4ZDA/exec';
+let API_URL = import.meta.env.VITE_APPS_SCRIPT_URL || PROD_URL;
 
 export const setApiUrl = (url: string) => {
   API_URL = url;
