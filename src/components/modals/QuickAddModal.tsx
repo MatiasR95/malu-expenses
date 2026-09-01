@@ -17,6 +17,7 @@ export const QuickAddModal: React.FC<Props> = ({ isOpen, onClose, initialCategor
   const [amountStr, setAmountStr] = useState('0');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedLogger, setSelectedLogger] = useState<'mati' | 'belu'>('mati');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'transferencia' | 'efectivo'>('transferencia');
   const [incomeType, setIncomeType] = useState<'cuota' | 'suplemento' | 'assurant' | 'otro'>('cuota');
   const [memberName, setMemberName] = useState('');
   const [selectedSupplement, setSelectedSupplement] = useState('Creatine Monohydrate');
@@ -68,7 +69,7 @@ export const QuickAddModal: React.FC<Props> = ({ isOpen, onClose, initialCategor
         amount: currentAmount,
         categoryId: selectedCategory,
         loggedBy: selectedLogger,
-        paymentMethod: 'transferencia',
+        paymentMethod: selectedPaymentMethod,
         date: new Date().toISOString().split('T')[0]
       });
     } else {
@@ -209,6 +210,32 @@ export const QuickAddModal: React.FC<Props> = ({ isOpen, onClose, initialCategor
                     }`}
                   >
                     Paid by Belu
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 mt-1">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPaymentMethod('transferencia')}
+                    className={`py-3 px-1 sm:px-2 text-[9px] sm:text-[10px] whitespace-nowrap font-mono uppercase font-bold border-2 transition-all ${
+                      selectedPaymentMethod === 'transferencia'
+                        ? 'bg-[var(--color-ink)] text-white border-[var(--color-ink)] shadow-[2px_2px_0_0_var(--color-ink)]'
+                        : 'bg-white text-[var(--color-ink)] border-[var(--color-ink)]/20'
+                    }`}
+                  >
+                    Transferencia
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPaymentMethod('efectivo')}
+                    className={`py-3 px-1 sm:px-2 text-[9px] sm:text-[10px] whitespace-nowrap font-mono uppercase font-bold border-2 transition-all ${
+                      selectedPaymentMethod === 'efectivo'
+                        ? 'bg-[var(--color-ink)] text-white border-[var(--color-ink)] shadow-[2px_2px_0_0_var(--color-accent-mustard)]'
+                        : 'bg-white text-[var(--color-ink)] border-[var(--color-ink)]/20'
+                    }`}
+                  >
+                    Efectivo (Cash)
                   </button>
                 </div>
               </>
