@@ -17,12 +17,6 @@ interface Props {
 
 type IncomeType = 'cuota' | 'suplemento' | 'assurant' | 'carryover';
 
-const SUPPLEMENTS = [
-  { id: 's1', name: 'Creatine Monohydrate', defaultPrice: 28000 },
-  { id: 's2', name: 'Whey Protein', defaultPrice: 35000 },
-  { id: 's3', name: 'Pre-Workout', defaultPrice: 22000 },
-];
-
 const INCOME_TYPES: { id: IncomeType; label: string; icon: typeof Users; preset: number }[] = [
   { id: 'cuota', label: 'Dues', icon: Users, preset: 45000 },
   { id: 'suplemento', label: 'Store', icon: Zap, preset: 29000 },
@@ -76,7 +70,7 @@ export const QuickAddModal: React.FC<Props> = ({
   initialCategoryId,
   initialMode = 'expense',
 }) => {
-  const { categories, addExpense, addIncome } = useFinance();
+  const { categories, addExpense, addIncome, supplements } = useFinance();
 
   const [mode, setMode] = useState<'expense' | 'income'>(initialMode);
   const [amountStr, setAmountStr] = useState('0');
@@ -85,7 +79,7 @@ export const QuickAddModal: React.FC<Props> = ({
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'transferencia' | 'efectivo'>('transferencia');
   const [incomeType, setIncomeType] = useState<IncomeType>('cuota');
   const [memberName, setMemberName] = useState('');
-  const [selectedSupplement, setSelectedSupplement] = useState(SUPPLEMENTS[0].name);
+  const [selectedSupplement, setSelectedSupplement] = useState('');
 
   useEffect(() => {
     if (!isOpen) return;
@@ -105,8 +99,9 @@ export const QuickAddModal: React.FC<Props> = ({
     if (currentAmount <= 0) return false;
     if (mode === 'expense') return !!selectedCategory;
     if (incomeType === 'cuota') return memberName.trim().length > 0;
+    if (incomeType === 'suplemento') return supplements.length > 0;
     return true;
-  }, [currentAmount, mode, selectedCategory, incomeType, memberName]);
+  }, [currentAmount, mode, selectedCategory, incomeType, memberName, supplements]);
 
 
   const handleKeyPress = (key: string) => {
@@ -303,7 +298,12 @@ export const QuickAddModal: React.FC<Props> = ({
                     aria-pressed={isActive}
                     onClick={() => {
                       setIncomeType(id);
-                      setAmountStr(String(preset));
+                      if (id === 'suplemento' && supplements.length > 0) {
+                        setSelectedSupplement(supplements[0].name);
+                        setAmountStr(String(supplements[0].defaultPrice));
+                      } else {
+                        setAmountStr(String(preset));
+                      }
                       if (id === 'carryover') setMemberName('');
                       tick(6);
                     }}
@@ -343,20 +343,26 @@ export const QuickAddModal: React.FC<Props> = ({
                   />
                 )}
                 {incomeType === 'suplemento' && (
-                  <select
-                    aria-label="Product"
-                    value={selectedSupplement}
-                    onChange={(e) => {
-                      setSelectedSupplement(e.target.value);
-                      const sup = SUPPLEMENTS.find((s) => s.name === e.target.value);
-                      if (sup) setAmountStr(String(sup.defaultPrice));
-                    }}
-                    className="w-full h-12 bg-[var(--color-paper-hi)] border-2 border-[var(--color-ink)] px-3 text-sm text-[var(--color-ink)] outline-none"
-                  >
-                    {SUPPLEMENTS.map((sup) => (
-                      <option key={sup.id} value={sup.name}>{sup.name}</option>
-                    ))}
-                  </select>
+                  supplements.length === 0 ? (
+                    <p className="text-[10px] font-mono uppercase tracking-[0.14em] text-[var(--color-ink-3)] text-center py-2">
+                      No products set up yet — add one from the store screen
+                    </p>
+                  ) : (
+                    <select
+                      aria-label="Product"
+                      value={selectedSupplement}
+                      onChange={(e) => {
+                        setSelectedSupplement(e.target.value);
+                        const sup = supplements.find((s) => s.name === e.target.value);
+                        if (sup) setAmountStr(String(sup.defaultPrice));
+                      }}
+                      className="w-full h-12 bg-[var(--color-paper-hi)] border-2 border-[var(--color-ink)] px-3 text-sm text-[var(--color-ink)] outline-none"
+                    >
+                      {supplements.map((sup) => (
+                        <option key={sup.id} value={sup.name}>{sup.name}</option>
+                      ))}
+                    </select>
+                  )
                 )}
                 {incomeType === 'assurant' && (
                   <p className="text-[10px] font-mono uppercase tracking-[0.14em] text-[var(--color-ink-3)] text-center py-2">

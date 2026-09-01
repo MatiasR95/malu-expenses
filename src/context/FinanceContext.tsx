@@ -72,6 +72,8 @@ interface FinanceContextType {
 
   toggleRecurringPaid: (recurringId: string, monthKey?: string) => void;
   addSupplementProduct: (supplement: Omit<SupplementProduct, 'id'>) => SupplementProduct;
+  updateSupplementProduct: (id: string, supplement: Partial<Omit<SupplementProduct, 'id'>>) => void;
+  deleteSupplementProduct: (id: string) => void;
 
   simulateInboundBankTransfer: (platform?: PaymentPlatform) => void;
 
@@ -635,6 +637,16 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return newSup;
   };
 
+  const updateSupplementProduct = (id: string, updatedData: Partial<Omit<SupplementProduct, 'id'>>) => {
+    setSupplements(prev =>
+      prev.map(s => (s.id === id ? { ...s, ...updatedData } : s))
+    );
+  };
+
+  const deleteSupplementProduct = (id: string) => {
+    setSupplements(prev => prev.filter(s => s.id !== id));
+  };
+
   const simulateInboundBankTransfer = (platform: PaymentPlatform = 'mercadopago') => {
     const sampleMembers = ['Mariano Benitez', 'Sofia Romero', 'Valeria Paz', 'Joaquin Silva', 'Esteban Gomez'];
     const randomMember = sampleMembers[Math.floor(Math.random() * sampleMembers.length)];
@@ -788,6 +800,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         deleteCategory,
         toggleRecurringPaid,
         addSupplementProduct,
+        updateSupplementProduct,
+        deleteSupplementProduct,
         simulateInboundBankTransfer,
         monthlySummary,
         allMonths,

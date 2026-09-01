@@ -11,6 +11,7 @@ import { ActionHubModal, HubAction } from './components/modals/ActionHubModal';
 import { QuickAddModal } from './components/modals/QuickAddModal';
 import { CreditCardSplitterModal } from './components/modals/CreditCardSplitterModal';
 import { CategoriesModal } from './components/modals/CategoriesModal';
+import { SupplementsModal } from './components/modals/SupplementsModal';
 import { EditExpenseModal } from './components/modals/EditExpenseModal';
 import { EditIncomeModal } from './components/modals/EditIncomeModal';
 import { AutomatedBankSyncModal } from './components/modals/AutomatedBankSyncModal';
@@ -29,6 +30,7 @@ const MainAppContent: React.FC = () => {
   const [isCreditCardSplitterOpen, setIsCreditCardSplitterOpen] = useState(false);
   const [isBankSyncOpen, setIsBankSyncOpen] = useState(false);
   const [isCategoriesOpen, setIsCategoriesOpen] = useState(false);
+  const [isSupplementsOpen, setIsSupplementsOpen] = useState(false);
   const [selectedEditingExpense, setSelectedEditingExpense] = useState<Expense | null>(null);
   const [selectedEditingIncome, setSelectedEditingIncome] = useState<Income | null>(null);
 
@@ -90,6 +92,7 @@ const MainAppContent: React.FC = () => {
             <IncomeDashboardScreen
               onOpenQuickAdd={(mode) => handleOpenQuickAdd(mode)}
               onEditIncome={setSelectedEditingIncome}
+              onOpenSupplements={() => setIsSupplementsOpen(true)}
             />
           )}
 
@@ -160,6 +163,11 @@ const MainAppContent: React.FC = () => {
       <CategoriesModal
         isOpen={isCategoriesOpen}
         onClose={() => setIsCategoriesOpen(false)}
+      />
+
+      <SupplementsModal
+        isOpen={isSupplementsOpen}
+        onClose={() => setIsSupplementsOpen(false)}
       />
     </div>
   );

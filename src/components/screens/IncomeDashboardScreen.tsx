@@ -1,11 +1,12 @@
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
-import { Plus, Check, ShoppingBag, Building2, PiggyBank, ArrowDownLeft, Pencil } from 'lucide-react';
+import { Plus, Check, ShoppingBag, Building2, PiggyBank, ArrowDownLeft, Pencil, Settings2 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { FORCE_REGULAR_MEMBERS } from '../../data/initialData';
 import { StepLineChart } from '../dashboard/StepLineChart';
 import { Amount } from '../common/Amount';
+import { CategoryIcon } from '../common/CategoryIcon';
 import { parseLocalDate } from '../../utils/currency';
 import { Income } from '../../types/finance';
 import { PRESS, PRESS_HARD } from '../../lib/motion';
@@ -14,6 +15,7 @@ import { tick } from '../../utils/haptics';
 interface Props {
   onOpenQuickAdd: (mode: 'expense' | 'income') => void;
   onEditIncome: (income: Income) => void;
+  onOpenSupplements: () => void;
 }
 
 const FORCE_TARGET = 1_500_000;
@@ -24,12 +26,6 @@ const ROSTER_LIMIT = 24;
 const OTHER_INFLOWS = [
   { id: 'assurant' as const, icon: Building2, label: 'Assurant', hint: 'Corporate salary' },
   { id: 'carryover' as const, icon: PiggyBank, label: 'Carry-over', hint: 'Left over from last month' },
-];
-
-const SUPPLEMENTS = [
-  { id: 's1', name: 'Creatine Monohydrate', defaultPrice: 28000 },
-  { id: 's2', name: 'Whey Protein', defaultPrice: 35000 },
-  { id: 's3', name: 'Pre-Workout', defaultPrice: 22000 },
 ];
 
 /** Section heading used down the whole screen. */
@@ -54,8 +50,8 @@ const Rule: React.FC<{ title: string; right?: React.ReactNode; dark?: boolean }>
   </div>
 );
 
-export const IncomeDashboardScreen: React.FC<Props> = ({ onOpenQuickAdd, onEditIncome }) => {
-  const { monthlySummary, addIncome, incomes, selectedMonth } = useFinance();
+export const IncomeDashboardScreen: React.FC<Props> = ({ onOpenQuickAdd, onEditIncome, onOpenSupplements }) => {
+  const { monthlySummary, addIncome, incomes, selectedMonth, supplements } = useFinance();
 
   const today = new Date();
   const progress = Math.min(100, Math.round((monthlySummary.forceGymTotal / FORCE_TARGET) * 100));
@@ -378,43 +374,67 @@ export const IncomeDashboardScreen: React.FC<Props> = ({ onOpenQuickAdd, onEditI
         <Rule
           title="Supplement store"
           right={
-            <span className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.14em] text-[var(--color-terracotta)]">
-              <ShoppingBag size={12} /> POS
-            </span>
+            <motion.button
+              type="button"
+              whileTap={PRESS}
+              onClick={onOpenSupplements}
+              aria-label="Manage products"
+              className="flex items-center gap-1.5 h-9 px-2 -mr-2 text-[10px] font-mono uppercase tracking-[0.14em] text-[var(--color-terracotta)]"
+            >
+              <Settings2 size={12} /> Manage
+            </motion.button>
           }
         />
 
-        <div className="flex flex-col gap-1.5">
-          {SUPPLEMENTS.map((product, i) => (
-            <motion.button
-              key={product.id}
-              type="button"
-              style={{ '--i': i } as React.CSSProperties}
-              whileTap={PRESS}
-              onClick={() =>
-                logIncome(
-                  product.defaultPrice,
-                  { type: 'suplemento', productTag: product.name },
-                  `Store Sale - ${product.name}`
-                )
-              }
-              aria-label={`Log a sale of ${product.name}`}
-              className="reveal-item w-full px-4 py-3.5 bg-[var(--color-olive-2)] hover:bg-[var(--color-olive-3)] transition-colors flex items-center justify-between gap-3 text-left"
-            >
-              <span className="min-w-0 flex flex-col">
-                <span className="font-display font-medium text-sm tracking-wide truncate">
-                  {product.name}
-                </span>
-                <span className="text-[10px] font-mono tabular text-[var(--color-mustard)] mt-0.5">
-                  ${product.defaultPrice.toLocaleString('en-US')}
-                </span>
-              </span>
-              <span className="shrink-0 h-9 px-3 bg-[var(--color-olive-4)] flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.16em] font-bold">
-                <Plus size={12} strokeWidth={3} /> Sell
-              </span>
-            </motion.button>
-          ))}
-        </div>
+        {supplements.length === 0 ? (
+          <button
+            type="button"
+            onClick={onOpenSupplements}
+            className="w-full py-8 text-center text-white/40 text-[11px] font-mono uppercase tracking-[0.16em] border-2 border-dashed border-white/15 hover:border-white/30 transition-colors"
+          >
+            <ShoppingBag size={16} className="mx-auto mb-2 opacity-60" />
+            No products yet · tap to add one
+          </button>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            {supplements.map((product, i) => (
+              <div
+                key={product.id}
+                style={{ '--i': i } as React.CSSProperties}
+                className="reveal-item w-full flex items-center gap-1.5"
+              >
+                <motion.button
+                  type="button"
+                  whileTap={PRESS}
+                  onClick={() =>
+                    logIncome(
+                      product.defaultPrice,
+                      { type: 'suplemento', productTag: product.name },
+                      `Store Sale - ${product.name}`
+                    )
+                  }
+                  aria-label={`Log a sale of ${product.name}`}
+                  className="flex-1 min-w-0 px-4 py-3.5 bg-[var(--color-olive-2)] hover:bg-[var(--color-olive-3)] transition-colors flex items-center gap-3 text-left"
+                >
+                  <span className="w-8 h-8 shrink-0 border border-white/20 flex items-center justify-center">
+                    <CategoryIcon name={product.icon} size={14} className="text-[var(--color-mustard)]" />
+                  </span>
+                  <span className="min-w-0 flex-1 flex flex-col">
+                    <span className="font-display font-medium text-sm tracking-wide truncate">
+                      {product.name}
+                    </span>
+                    <span className="text-[10px] font-mono tabular text-[var(--color-mustard)] mt-0.5">
+                      ${product.defaultPrice.toLocaleString('en-US')}
+                    </span>
+                  </span>
+                  <span className="shrink-0 h-9 px-3 bg-[var(--color-olive-4)] flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.16em] font-bold">
+                    <Plus size={12} strokeWidth={3} /> Sell
+                  </span>
+                </motion.button>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );
