@@ -18,7 +18,7 @@ import {
   DEFAULT_SUPPLEMENTS,
 } from '../data/initialData';
 import { formatARS, formatMonthName, getCurrentMonthKey } from '../utils/currency';
-import { FinanceAPI, setApiUrl } from '../api/client';
+import { FinanceAPI } from '../api/client';
 
 interface BankConnectionState {
   connected: boolean;

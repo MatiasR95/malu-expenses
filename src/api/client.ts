@@ -1,4 +1,4 @@
-import { Expense, Income, RecurringCommitment } from '../types/finance';
+import { Expense, Income } from '../types/finance';
 
 // When you deploy the Google Apps Script Web App, replace this URL.
 // Ensure it ends with /exec
