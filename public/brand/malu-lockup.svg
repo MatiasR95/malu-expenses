@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 140" fill="none">
+  <!-- Horizontal lockup: mark + wordmark. NOTE: <text> needs Space Grotesk installed/loaded.
+       For final print/export, convert text to outlines (Figma/Inkscape: Object > Path). -->
+  <g transform="translate(10,10) scale(1)">
+    <path d="M 20 98 L 20 30 L 60 72" stroke="#12151A" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M 60 72 L 100 30 L 100 84" stroke="#155EEF" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="100" cy="98" r="7.5" fill="#C9A227"/>
+  </g>
+  <text x="150" y="82" font-family="'Space Grotesk', sans-serif" font-weight="700" font-size="64" letter-spacing="2" fill="#12151A">MALU</text>
+  <text x="152" y="116" font-family="'IBM Plex Mono', monospace" font-size="19" letter-spacing="6" fill="#8C6D2F">AI SOLUTIONS</text>
+</svg>

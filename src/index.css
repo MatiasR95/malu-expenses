@@ -1,0 +1,66 @@
+﻿@import url('/fonts/clash-display.css');
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    /* Industrial Brutalist Palette (Images 4 & 5) */
+    --color-bg-sage: #c1c4b1;
+    --color-ink: #151613;
+    
+    /* Accents */
+    --color-accent-mustard: #dec956;
+    --color-accent-terracotta: #d97052;
+    
+    /* Flush Blocks (Stacked Olive Shades) */
+    --color-block-1: #4a5045; /* Darkest Olive */
+    --color-block-2: #545c4f; 
+    --color-block-3: #6f7a69;
+    --color-block-4: #879281; /* Lightest Olive */
+    
+    /* Typography */
+    --font-display: 'Clash Display', sans-serif;
+    --font-body: 'Plus Jakarta Sans', system-ui, sans-serif;
+    --font-mono: 'Space Grotesk', monospace; /* Premium Geometric Mono Replacement */
+  }
+
+  body {
+    background-color: var(--color-bg-sage);
+    color: var(--color-ink);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    letter-spacing: -0.01em;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display);
+  }
+  .font-mono {
+    font-family: var(--font-mono);
+  }
+  
+  /* Flush block structural utilities */
+  .flush-block {
+    @apply w-full rounded-none;
+  }
+  
+  /* Decimal styling for huge numbers */
+  .decimal-outline {
+    -webkit-text-stroke: 2px var(--color-ink);
+    color: transparent;
+    font-weight: 700;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-ink);
+  opacity: 0.2;
+}

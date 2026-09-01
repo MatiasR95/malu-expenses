@@ -1,0 +1,18 @@
+/* Clash Display (Indian Type Foundry / Fontshare Free License) servida desde
+   nuestro propio dominio, igual que Montserrat: nada de pedirle la tipografia a
+   un tercero, que le entrega la IP de cada visitante y suma handshakes antes del
+   primer pintado.
+
+   Es la tipografia de DISPLAY, y solo eso: titulares, numeros hero y kickers.
+   El cuerpo sigue siendo Montserrat. La jerarquia la lleva la ESCALA, no el peso
+   (misma logica que la referencia de estilo): 500 y 600 hacen casi todo el
+   trabajo, 700 queda para numeros gigantes.
+
+   Licencia: https://www.fontshare.com/licenses/itf-ffl - fila en assets/LICENSES.md.
+   Los archivos son los woff2 completos de Fontshare (~15 KB cada uno). */
+@font-face{font-family:'Clash Display';font-style:normal;font-weight:500;
+  font-display:swap;src:url(clash-display-500.woff2) format('woff2')}
+@font-face{font-family:'Clash Display';font-style:normal;font-weight:600;
+  font-display:swap;src:url(clash-display-600.woff2) format('woff2')}
+@font-face{font-family:'Clash Display';font-style:normal;font-weight:700;
+  font-display:swap;src:url(clash-display-700.woff2) format('woff2')}
