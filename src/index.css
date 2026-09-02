@@ -211,6 +211,21 @@
   from { width: 0; }
   to   { width: var(--wipe-to, 300px); }
 }
+@keyframes malu-pop {
+  from { opacity: 0; transform: scale(var(--pop-from, 0.7)); }
+  to   { opacity: 1; transform: none; }
+}
+/* Bars and fills. The end state is a variable because these settle at a value
+   the data chooses -- a weekday at 40% of the heaviest, a spend fill at 22% of
+   inflow -- not at 1. */
+@keyframes malu-grow-x {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(var(--grow-to, 1)); }
+}
+@keyframes malu-grow-y {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(var(--grow-to, 1)); }
+}
 
 @layer utilities {
   .reveal {
@@ -227,5 +242,20 @@
   .reveal-wipe {
     animation: malu-wipe 1.05s var(--ease-out-expo) both;
     animation-delay: 0.1s;
+  }
+  /* Grid cells: a calendar of 30 tiles reads better popping in than rising. */
+  .reveal-pop {
+    animation: malu-pop 0.34s var(--ease-out-expo) both;
+    animation-delay: calc(var(--i, 0) * 12ms);
+  }
+  .grow-x {
+    transform-origin: left;
+    animation: malu-grow-x 0.6s var(--ease-out-expo) both;
+    animation-delay: calc(var(--i, 0) * 50ms + var(--delay, 100ms));
+  }
+  .grow-y {
+    transform-origin: bottom;
+    animation: malu-grow-y 0.55s var(--ease-out-expo) both;
+    animation-delay: calc(var(--i, 0) * 50ms + var(--delay, 100ms));
   }
 }

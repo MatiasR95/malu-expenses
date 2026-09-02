@@ -1,9 +1,7 @@
 import React from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
 import { useFinance } from '../../context/FinanceContext';
 import { useMonthAnalytics } from '../../lib/analytics';
 import { formatARS } from '../../utils/currency';
-import { EASE_OUT } from '../../lib/motion';
 
 /**
  * Are we burning faster than the month is passing?
@@ -20,7 +18,6 @@ import { EASE_OUT } from '../../lib/motion';
  */
 export const PaceMeter: React.FC = () => {
   const { incomes, expenses, selectedMonth, userFilter, categories } = useFinance();
-  const reduce = useReducedMotion();
   const a = useMonthAnalytics({ incomes, expenses, selectedMonth, userFilter }, categories);
 
   if (a.totalIncome <= 0) return null;
@@ -75,28 +72,27 @@ export const PaceMeter: React.FC = () => {
           />
         ))}
 
-        {/* Spend fill. */}
-        <motion.div
-          initial={reduce ? false : { scaleX: 0 }}
-          animate={{ scaleX: spentPct / 100 }}
-          transition={{ duration: 0.9, ease: EASE_OUT, delay: 0.15 }}
-          style={{ transformOrigin: 'left' }}
-          className={`absolute inset-y-0 left-0 w-full ${
+        {/* Spend fill.
+            CSS, not a spring. This bar is the only thing that says how much of
+            the month's inflow is gone, and anything that gates whether a figure
+            is visible has to settle on its own even when the frame loop is
+            throttled -- a backgrounded tab, a cold device. `--grow-to` carries
+            the end state the data chose. */}
+        <div
+          style={{ '--grow-to': spentPct / 100, '--delay': '150ms' } as React.CSSProperties}
+          className={`grow-x absolute inset-y-0 left-0 w-full ${
             overspill ? 'bg-[var(--color-terracotta)]' : 'bg-[var(--color-ink)]'
           }`}
         />
 
         {/* Where the calendar has got to. The fill has to be read against
             this, so it sits above the fill and carries its own label. */}
-        <motion.div
-          initial={reduce ? false : { opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.4, delay: 0.75 }}
-          style={{ left: `${timePct}%` }}
-          className="absolute inset-y-0 w-px bg-[var(--color-mustard)]"
+        <div
+          style={{ left: `${timePct}%`, animationDelay: '520ms' }}
+          className="reveal absolute inset-y-0 w-px bg-[var(--color-mustard)]"
         >
           <span className="absolute -top-0.5 -left-[3px] w-[7px] h-[7px] bg-[var(--color-mustard)]" />
-        </motion.div>
+        </div>
 
       </div>
 

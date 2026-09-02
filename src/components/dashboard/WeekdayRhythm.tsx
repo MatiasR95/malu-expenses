@@ -1,9 +1,7 @@
 import React, { useMemo } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
 import { useFinance } from '../../context/FinanceContext';
 import { buildWeekdayRhythm } from '../../lib/analytics';
 import { formatARS } from '../../utils/currency';
-import { EASE_OUT } from '../../lib/motion';
 
 const FULL = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -18,7 +16,6 @@ const FULL = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
  */
 export const WeekdayRhythm: React.FC = () => {
   const { expenses, selectedMonth, userFilter } = useFinance();
-  const reduce = useReducedMotion();
 
   const cells = useMemo(
     () => buildWeekdayRhythm(expenses, selectedMonth, userFilter),
@@ -48,12 +45,9 @@ export const WeekdayRhythm: React.FC = () => {
               {FULL[c.index].slice(0, 3)}
             </span>
             <span className="relative flex-1 h-4 bg-white/[0.06]">
-              <motion.span
-                initial={reduce ? false : { scaleX: 0 }}
-                animate={{ scaleX: c.intensity }}
-                transition={{ duration: 0.6, ease: EASE_OUT, delay: 0.1 + i * 0.05 }}
-                style={{ transformOrigin: 'left' }}
-                className={`absolute inset-0 ${
+              <span
+                style={{ '--grow-to': c.intensity, '--i': i } as React.CSSProperties}
+                className={`grow-x absolute inset-0 ${
                   c.index === heaviest.index
                     ? 'bg-[var(--color-mustard)]'
                     : 'bg-[var(--color-olive-5)]'

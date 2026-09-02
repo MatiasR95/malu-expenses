@@ -1,11 +1,11 @@
 import React from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { rollUpCategories } from '../../lib/analytics';
 import { CategoryIcon } from '../common/CategoryIcon';
 import { formatARS } from '../../utils/currency';
-import { EASE_OUT, PRESS } from '../../lib/motion';
+import { PRESS } from '../../lib/motion';
 
 interface Props {
   onSeeAll: () => void;
@@ -22,7 +22,6 @@ interface Props {
  */
 export const CategorySplit: React.FC<Props> = ({ onSeeAll }) => {
   const { expenses, categories, selectedMonth, userFilter } = useFinance();
-  const reduce = useReducedMotion();
 
   const rows = rollUpCategories(expenses, categories, selectedMonth, userFilter);
   if (rows.length === 0) return null;
@@ -77,24 +76,24 @@ export const CategorySplit: React.FC<Props> = ({ onSeeAll }) => {
           .join(', ')}
       >
         {segments.map((s, i) => (
-          <motion.div
+          <div
             key={s.id}
-            initial={reduce ? false : { opacity: 0, scaleX: 0 }}
-            animate={{ opacity: 1, scaleX: 1 }}
-            transition={{ duration: 0.5, ease: EASE_OUT, delay: 0.1 + i * 0.06 }}
-            style={{
-              width: `${s.share}%`,
-              backgroundColor: s.color,
-              transformOrigin: 'left',
-            }}
-            className="relative h-full min-w-[2px] flex items-center justify-center"
+            style={
+              {
+                width: `${s.share}%`,
+                backgroundColor: s.color,
+                '--i': i,
+                '--delay': '80ms',
+              } as React.CSSProperties
+            }
+            className="grow-x relative h-full min-w-[2px] flex items-center justify-center"
           >
             {s.share >= 14 && (
               <span className="text-[9px] font-mono font-bold tabular text-[var(--color-ink)]/70">
                 {Math.round(s.share)}%
               </span>
             )}
-          </motion.div>
+          </div>
         ))}
       </div>
 

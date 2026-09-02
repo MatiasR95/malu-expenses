@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
 import { useFinance } from '../../context/FinanceContext';
 import { useMonthAnalytics } from '../../lib/analytics';
 import { formatARS } from '../../utils/currency';
-import { EASE_OUT } from '../../lib/motion';
 
 /**
  * The month as a calendar of intensity.
@@ -19,7 +17,6 @@ import { EASE_OUT } from '../../lib/motion';
  */
 export const SpendHeatGrid: React.FC = () => {
   const { incomes, expenses, selectedMonth, userFilter, categories } = useFinance();
-  const reduce = useReducedMotion();
   const [hovered, setHovered] = useState<number | null>(null);
 
   const a = useMonthAnalytics({ incomes, expenses, selectedMonth, userFilter }, categories);
@@ -32,8 +29,8 @@ export const SpendHeatGrid: React.FC = () => {
   const active = hovered != null ? a.days[hovered - 1] : null;
 
   return (
-    <section className="px-5 py-5">
-      <div className="flex items-baseline justify-between gap-3 mb-3">
+    <section className="py-5">
+      <div className="px-5 flex items-baseline justify-between gap-3 mb-3">
         <h2 className="text-[9px] font-mono uppercase tracking-[0.2em] text-white/60">
           Spending calendar
         </h2>
@@ -44,17 +41,31 @@ export const SpendHeatGrid: React.FC = () => {
         </p>
       </div>
 
-      <div className="grid grid-cols-7 gap-1" role="group" aria-label="Daily spending intensity">
+      {/* Weekday heads ride their own grid so the cells below can run to the
+          screen edge without dragging the labels' padding with them. */}
+      <div className="grid grid-cols-7 gap-px mb-1" aria-hidden="true">
         {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
           <span
             key={i}
-            aria-hidden="true"
-            className="text-center text-[8px] font-mono uppercase tracking-[0.1em] text-white/35 pb-0.5"
+            className="text-center text-[8px] font-mono uppercase tracking-[0.1em] text-white/35"
           >
             {d}
           </span>
         ))}
+      </div>
 
+      {/* Full-bleed, 1px gutters.
+          Seven columns inside the usual 20px page margins leave ~36px cells on
+          a 320px screen, which is below the 44pt minimum and small enough that
+          a thumb hits the wrong day. Running the grid edge to edge with hairline
+          gaps is the only way seven columns clear 44px at that width -- and the
+          contiguous block reads as one printed table rather than 30 floating
+          chips, which suits the rest of the system better anyway. */}
+      <div
+        className="grid grid-cols-7 gap-px"
+        role="group"
+        aria-label="Daily spending intensity"
+      >
         {Array.from({ length: firstWeekday }, (_, i) => (
           <span key={`pad-${i}`} aria-hidden="true" />
         ))}
@@ -63,38 +74,45 @@ export const SpendHeatGrid: React.FC = () => {
           const intensity = d.spend / peak;
           const isFuture = !d.elapsed;
           return (
-            <motion.button
+            <button
               key={d.day}
               type="button"
-              initial={reduce ? false : { opacity: 0, scale: 0.7 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.32, ease: EASE_OUT, delay: Math.min(i, 31) * 0.012 }}
-              onHoverStart={() => setHovered(d.day)}
-              onHoverEnd={() => setHovered(null)}
+              style={
+                {
+                  '--i': i,
+                  backgroundColor: isFuture
+                    ? 'rgba(255,255,255,0.03)'
+                    : d.spend === 0
+                      ? 'rgba(255,255,255,0.07)'
+                      : `color-mix(in srgb, var(--color-mustard) ${18 + intensity * 82}%, transparent)`,
+                } as React.CSSProperties
+              }
+              onMouseEnter={() => setHovered(d.day)}
+              onMouseLeave={() => setHovered(null)}
               onFocus={() => setHovered(d.day)}
               onBlur={() => setHovered(null)}
               onClick={() => setHovered((h) => (h === d.day ? null : d.day))}
               title={`${String(d.day).padStart(2, '0')} — ${d.spend > 0 ? formatARS(d.spend) : 'no spending'}`}
               aria-label={`Day ${d.day}, ${d.spend > 0 ? formatARS(d.spend) : 'no spending'}`}
-              className={`relative aspect-square flex items-center justify-center text-[9px] font-mono tabular transition-[outline-color] ${
-                hovered === d.day ? 'outline outline-2 outline-[var(--color-mustard)]' : ''
+              /* `min-h-11` is the floor the aspect ratio cannot guarantee on
+                 its own: below ~316px of viewport the columns stop being 44px
+                 wide, and a short cell as well as a narrow one would miss the
+                 target in both directions. The outline is inset so a focused
+                 cell does not draw over its neighbours across the 1px gutter. */
+              className={`reveal-pop relative aspect-square min-h-11 flex items-center justify-center text-[10px] font-mono tabular transition-[outline-color] ${
+                hovered === d.day
+                  ? 'outline outline-2 -outline-offset-2 outline-[var(--color-mustard)]'
+                  : ''
               } ${isFuture ? 'text-white/20' : intensity > 0.55 ? 'text-[var(--color-ink)]' : 'text-white/70'}`}
-              style={{
-                backgroundColor: isFuture
-                  ? 'rgba(255,255,255,0.03)'
-                  : d.spend === 0
-                    ? 'rgba(255,255,255,0.07)'
-                    : `color-mix(in srgb, var(--color-mustard) ${18 + intensity * 82}%, transparent)`,
-              }}
             >
               {d.day}
-            </motion.button>
+            </button>
           );
         })}
       </div>
 
       {/* Scale legend. Shading is meaningless without one. */}
-      <div className="flex items-center gap-2 mt-3">
+      <div className="px-5 flex items-center gap-2 mt-3">
         <span className="text-[8px] font-mono uppercase tracking-[0.14em] text-white/40">
           Light
         </span>

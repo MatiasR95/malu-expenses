@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useFinance } from '../../context/FinanceContext';
 import { buildMonthHistory } from '../../lib/analytics';
 import { formatARS } from '../../utils/currency';
-import { EASE_OUT, PRESS } from '../../lib/motion';
+import { PRESS } from '../../lib/motion';
 
 /**
  * Six months of in-versus-out, paired bars.
@@ -18,7 +18,6 @@ import { EASE_OUT, PRESS } from '../../lib/motion';
  */
 export const MonthHistoryBars: React.FC = () => {
   const { incomes, expenses, selectedMonth, setSelectedMonth, userFilter } = useFinance();
-  const reduce = useReducedMotion();
   const [focused, setFocused] = useState<string | null>(null);
 
   const bars = useMemo(
@@ -75,27 +74,26 @@ export const MonthHistoryBars: React.FC = () => {
                 className="group w-full h-full flex flex-col justify-end gap-1.5"
               >
                 <span className="flex items-end justify-center gap-[3px] h-full">
-                  <motion.span
-                    initial={reduce ? false : { scaleY: 0 }}
-                    animate={{ scaleY: 1 }}
-                    transition={{ duration: 0.55, ease: EASE_OUT, delay: 0.1 + i * 0.05 }}
-                    style={{
-                      height: `${Math.max(2, (b.income / peak) * 100)}%`,
-                      transformOrigin: 'bottom',
-                    }}
-                    className={`w-1/2 max-w-[14px] bg-[var(--color-mustard)] transition-opacity ${
+                  <span
+                    style={
+                      {
+                        height: `${Math.max(2, (b.income / peak) * 100)}%`,
+                        '--i': i,
+                      } as React.CSSProperties
+                    }
+                    className={`grow-y w-1/2 max-w-[14px] bg-[var(--color-mustard)] transition-opacity ${
                       isCurrent ? 'opacity-100' : 'opacity-45 group-hover:opacity-75'
                     }`}
                   />
-                  <motion.span
-                    initial={reduce ? false : { scaleY: 0 }}
-                    animate={{ scaleY: 1 }}
-                    transition={{ duration: 0.55, ease: EASE_OUT, delay: 0.16 + i * 0.05 }}
-                    style={{
-                      height: `${Math.max(2, (b.spend / peak) * 100)}%`,
-                      transformOrigin: 'bottom',
-                    }}
-                    className={`w-1/2 max-w-[14px] bg-[var(--color-terracotta)] transition-opacity ${
+                  <span
+                    style={
+                      {
+                        height: `${Math.max(2, (b.spend / peak) * 100)}%`,
+                        '--i': i,
+                        '--delay': '160ms',
+                      } as React.CSSProperties
+                    }
+                    className={`grow-y w-1/2 max-w-[14px] bg-[var(--color-terracotta)] transition-opacity ${
                       isCurrent ? 'opacity-100' : 'opacity-45 group-hover:opacity-75'
                     }`}
                   />
