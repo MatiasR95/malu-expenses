@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { format } from 'date-fns';
 import { ArrowUpRight, Plus, ChevronDown } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { Expense } from '../../types/finance';
 import { CategoryIcon } from '../common/CategoryIcon';
 import { Amount } from '../common/Amount';
-import { parseLocalDate } from '../../utils/currency';
+import { formatDayMonth, parseLocalDate } from '../../utils/currency';
 import { PRESS } from '../../lib/motion';
 
 interface Props {
@@ -113,7 +112,7 @@ export const RecentActivityLedger: React.FC<Props> = ({ onExpenseClick, onAdd })
                       <Amount value={expense.amount} size="md" />
                     </span>
                     <span className="text-[9px] font-mono uppercase tracking-[0.14em] opacity-45">
-                      {format(parseLocalDate(expense.date), 'dd MMM')}
+                      {formatDayMonth(expense.date)}
                     </span>
                   </span>
                 </motion.button>

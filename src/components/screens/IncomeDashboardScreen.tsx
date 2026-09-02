@@ -1,13 +1,12 @@
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { format } from 'date-fns';
 import { Plus, Check, ShoppingBag, Building2, PiggyBank, ArrowDownLeft, Pencil, Settings2 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { FORCE_REGULAR_MEMBERS } from '../../data/initialData';
 import { StepLineChart } from '../dashboard/StepLineChart';
 import { Amount } from '../common/Amount';
 import { CategoryIcon } from '../common/CategoryIcon';
-import { parseLocalDate } from '../../utils/currency';
+import { formatDayMonth, parseLocalDate } from '../../utils/currency';
 import { Income } from '../../types/finance';
 import { PRESS, PRESS_HARD } from '../../lib/motion';
 import { tick } from '../../utils/haptics';
@@ -353,7 +352,7 @@ export const IncomeDashboardScreen: React.FC<Props> = ({ onOpenQuickAdd, onEditI
                         </span>
                         <span className="text-[9px] font-mono uppercase tracking-[0.14em] opacity-55 mt-0.5 truncate">
                           {income.forceDetails?.type === 'cuota' ? 'Membership' : 'Store'} ·{' '}
-                          {income.platform} · {format(parseLocalDate(income.date), 'dd MMM')}
+                          {income.platform} · {formatDayMonth(income.date)}
                         </span>
                       </span>
                     </span>

@@ -12,6 +12,19 @@ export function parseLocalDate(iso: string): Date {
   return new Date(y, (m || 1) - 1, d || 1);
 }
 
+/**
+ * Ledger date, e.g. `01 Sep`.
+ *
+ * This was the only thing the app used date-fns for -- one call, one format
+ * string, in two files -- and `format` drags the library's whole token parser
+ * and locale plumbing into the bundle to do it. `Intl` is in the platform.
+ */
+export function formatDayMonth(iso: string): string {
+  return parseLocalDate(iso)
+    .toLocaleDateString('en-US', { day: '2-digit', month: 'short' })
+    .replace(',', '');
+}
+
 export function formatARS(amount: number, options?: { compact?: boolean }): string {
   if (options?.compact) {
     if (Math.abs(amount) >= 1_000_000) {

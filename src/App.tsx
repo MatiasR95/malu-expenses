@@ -1,21 +1,68 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { FinanceProvider, useFinance } from './context/FinanceContext';
 import { Header } from './components/layout/Header';
 import { BottomTabBar } from './components/layout/BottomTabBar';
 import { DynamicIslandPill } from './components/layout/DynamicIslandPill';
 import { HomeScreen } from './components/screens/HomeScreen';
-import { IncomeDashboardScreen } from './components/screens/IncomeDashboardScreen';
-import { ExpenseAnalyticsScreen } from './components/screens/ExpenseAnalyticsScreen';
-import { ActionHubModal, HubAction } from './components/modals/ActionHubModal';
-import { QuickAddModal } from './components/modals/QuickAddModal';
-import { CreditCardSplitterModal } from './components/modals/CreditCardSplitterModal';
-import { CategoriesModal } from './components/modals/CategoriesModal';
-import { SupplementsModal } from './components/modals/SupplementsModal';
-import { EditExpenseModal } from './components/modals/EditExpenseModal';
-import { EditIncomeModal } from './components/modals/EditIncomeModal';
-import { AutomatedBankSyncModal } from './components/modals/AutomatedBankSyncModal';
+import { ScreenSkeleton } from './components/screens/ScreenSkeleton';
+import { DeferredSheet } from './components/common/DeferredSheet';
 import { AppTab, Expense, Income } from './types/finance';
+/* Type-only, so naming it here does not pull the hub's chunk into the entry. */
+import type { HubAction } from './components/modals/ActionHubModal';
+
+/**
+ * Code splitting.
+ *
+ * Home is the landing screen and stays in the entry chunk. Everything else --
+ * the two other screens and all eight sheets -- is reached by a deliberate tap
+ * and had no business being parsed on first paint: the sheets alone are the
+ * larger half of the app's source, and a cold load was downloading the
+ * category editor, the supplement catalogue and the statement parser before it
+ * could show anyone their balance.
+ *
+ * Every module here exports by name, so each import is mapped onto the default
+ * shape `lazy` expects.
+ */
+const IncomeDashboardScreen = lazy(() =>
+  import('./components/screens/IncomeDashboardScreen').then((m) => ({
+    default: m.IncomeDashboardScreen,
+  }))
+);
+const ExpenseAnalyticsScreen = lazy(() =>
+  import('./components/screens/ExpenseAnalyticsScreen').then((m) => ({
+    default: m.ExpenseAnalyticsScreen,
+  }))
+);
+
+const ActionHubModal = lazy(() =>
+  import('./components/modals/ActionHubModal').then((m) => ({ default: m.ActionHubModal }))
+);
+const QuickAddModal = lazy(() =>
+  import('./components/modals/QuickAddModal').then((m) => ({ default: m.QuickAddModal }))
+);
+const CreditCardSplitterModal = lazy(() =>
+  import('./components/modals/CreditCardSplitterModal').then((m) => ({
+    default: m.CreditCardSplitterModal,
+  }))
+);
+const CategoriesModal = lazy(() =>
+  import('./components/modals/CategoriesModal').then((m) => ({ default: m.CategoriesModal }))
+);
+const SupplementsModal = lazy(() =>
+  import('./components/modals/SupplementsModal').then((m) => ({ default: m.SupplementsModal }))
+);
+const EditExpenseModal = lazy(() =>
+  import('./components/modals/EditExpenseModal').then((m) => ({ default: m.EditExpenseModal }))
+);
+const EditIncomeModal = lazy(() =>
+  import('./components/modals/EditIncomeModal').then((m) => ({ default: m.EditIncomeModal }))
+);
+const AutomatedBankSyncModal = lazy(() =>
+  import('./components/modals/AutomatedBankSyncModal').then((m) => ({
+    default: m.AutomatedBankSyncModal,
+  }))
+);
 
 /** Tab order, so a screen change can travel in the direction you tapped. */
 const TAB_ORDER: AppTab[] = ['cockpit', 'force_gym', 'analytics'];
@@ -90,19 +137,23 @@ const MainAppContent: React.FC = () => {
           )}
 
           {activeTab === 'force_gym' && (
-            <IncomeDashboardScreen
-              onOpenQuickAdd={(mode) => handleOpenQuickAdd(mode)}
-              onEditIncome={setSelectedEditingIncome}
-              onOpenSupplements={() => setIsSupplementsOpen(true)}
-            />
+            <Suspense fallback={<ScreenSkeleton />}>
+              <IncomeDashboardScreen
+                onOpenQuickAdd={(mode) => handleOpenQuickAdd(mode)}
+                onEditIncome={setSelectedEditingIncome}
+                onOpenSupplements={() => setIsSupplementsOpen(true)}
+              />
+            </Suspense>
           )}
 
           {activeTab === 'analytics' && (
-            <ExpenseAnalyticsScreen
-              onOpenQuickAdd={(catId) => handleOpenQuickAdd('expense', catId)}
-              onOpenCreditCardSplitter={() => setIsCreditCardSplitterOpen(true)}
-              onOpenCategories={() => setIsCategoriesOpen(true)}
-            />
+            <Suspense fallback={<ScreenSkeleton />}>
+              <ExpenseAnalyticsScreen
+                onOpenQuickAdd={(catId) => handleOpenQuickAdd('expense', catId)}
+                onOpenCreditCardSplitter={() => setIsCreditCardSplitterOpen(true)}
+                onOpenCategories={() => setIsCategoriesOpen(true)}
+              />
+            </Suspense>
           )}
         </div>
 
@@ -126,50 +177,66 @@ const MainAppContent: React.FC = () => {
         onOpenBankSync={() => setIsBankSyncOpen(true)}
       />
 
-      <ActionHubModal
-        isOpen={isActionHubOpen}
-        onClose={() => setIsActionHubOpen(false)}
-        onSelectAction={handleActionHubSelect}
-      />
+      <DeferredSheet isOpen={isActionHubOpen}>
+        <ActionHubModal
+          isOpen={isActionHubOpen}
+          onClose={() => setIsActionHubOpen(false)}
+          onSelectAction={handleActionHubSelect}
+        />
+      </DeferredSheet>
 
-      <QuickAddModal
-        isOpen={isQuickAddOpen}
-        onClose={() => setIsQuickAddOpen(false)}
-        initialCategoryId={quickAddCategoryId}
-        initialMode={quickAddMode}
-      />
+      <DeferredSheet isOpen={isQuickAddOpen}>
+        <QuickAddModal
+          isOpen={isQuickAddOpen}
+          onClose={() => setIsQuickAddOpen(false)}
+          initialCategoryId={quickAddCategoryId}
+          initialMode={quickAddMode}
+        />
+      </DeferredSheet>
 
-      <CreditCardSplitterModal
-        isOpen={isCreditCardSplitterOpen}
-        onClose={() => setIsCreditCardSplitterOpen(false)}
-      />
+      <DeferredSheet isOpen={isCreditCardSplitterOpen}>
+        <CreditCardSplitterModal
+          isOpen={isCreditCardSplitterOpen}
+          onClose={() => setIsCreditCardSplitterOpen(false)}
+        />
+      </DeferredSheet>
 
-      <EditExpenseModal
-        expense={selectedEditingExpense}
-        isOpen={!!selectedEditingExpense}
-        onClose={() => setSelectedEditingExpense(null)}
-      />
+      <DeferredSheet isOpen={!!selectedEditingExpense}>
+        <EditExpenseModal
+          expense={selectedEditingExpense}
+          isOpen={!!selectedEditingExpense}
+          onClose={() => setSelectedEditingExpense(null)}
+        />
+      </DeferredSheet>
 
-      <EditIncomeModal
-        income={selectedEditingIncome}
-        isOpen={!!selectedEditingIncome}
-        onClose={() => setSelectedEditingIncome(null)}
-      />
+      <DeferredSheet isOpen={!!selectedEditingIncome}>
+        <EditIncomeModal
+          income={selectedEditingIncome}
+          isOpen={!!selectedEditingIncome}
+          onClose={() => setSelectedEditingIncome(null)}
+        />
+      </DeferredSheet>
 
-      <AutomatedBankSyncModal
-        isOpen={isBankSyncOpen}
-        onClose={() => setIsBankSyncOpen(false)}
-      />
+      <DeferredSheet isOpen={isBankSyncOpen}>
+        <AutomatedBankSyncModal
+          isOpen={isBankSyncOpen}
+          onClose={() => setIsBankSyncOpen(false)}
+        />
+      </DeferredSheet>
 
-      <CategoriesModal
-        isOpen={isCategoriesOpen}
-        onClose={() => setIsCategoriesOpen(false)}
-      />
+      <DeferredSheet isOpen={isCategoriesOpen}>
+        <CategoriesModal
+          isOpen={isCategoriesOpen}
+          onClose={() => setIsCategoriesOpen(false)}
+        />
+      </DeferredSheet>
 
-      <SupplementsModal
-        isOpen={isSupplementsOpen}
-        onClose={() => setIsSupplementsOpen(false)}
-      />
+      <DeferredSheet isOpen={isSupplementsOpen}>
+        <SupplementsModal
+          isOpen={isSupplementsOpen}
+          onClose={() => setIsSupplementsOpen(false)}
+        />
+      </DeferredSheet>
     </div>
   );
 };
