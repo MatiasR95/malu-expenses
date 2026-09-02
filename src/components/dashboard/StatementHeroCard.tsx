@@ -1,32 +1,48 @@
 import React from 'react';
-import { TrendingDown, TrendingUp } from 'lucide-react';
+import { CalendarDays, Gauge, Timer } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
-import { InteractiveHeroChart } from './InteractiveHeroChart';
+import { useMonthAnalytics } from '../../lib/analytics';
+import { BalanceTrace } from './BalanceTrace';
 import { Amount } from '../common/Amount';
 
 /**
  * The statement head: what's left, what it burns down to, and the trace.
  *
- * `dailySafeBurnRate` and `daysRemaining` were already computed in context and
- * displayed nowhere -- which is the single most useful thing a shared-cash app
- * can tell you, so they now sit directly under the headline figure.
+ * The headline used to read the unfiltered monthly summary while its own label
+ * claimed to be filtered -- switching the masthead to "Belu" relabelled the
+ * figure without changing it, so the number was simply wrong for two of the
+ * three filter states. Everything here now comes from the same filtered month
+ * walk the charts use, so the label and the figure always agree.
  */
 export const StatementHeroCard: React.FC = () => {
-  const { monthlySummary, userFilter } = useFinance();
-  const { netAvailableCash, dailySafeBurnRate, daysRemaining, totalIncome, totalExpenses } =
-    monthlySummary;
+  const { incomes, expenses, selectedMonth, userFilter, categories } = useFinance();
+  const a = useMonthAnalytics({ incomes, expenses, selectedMonth, userFilter }, categories);
 
-  const label = userFilter === 'all' ? 'Available' : `Available · ${userFilter}`;
-  const isPositive = netAvailableCash >= 0;
+  const daysLeft = Math.max(0, a.shape.daysInMonth - a.shape.today);
+  const safePerDay = a.net > 0 && daysLeft > 0 ? Math.round(a.net / daysLeft) : 0;
+
+  /* Runway is the honest version of "days left": how long the money lasts at
+     the rate it is actually going out, which can be shorter *or* longer than
+     the calendar month. Capped for display -- "412 days" is noise. */
+  const runway = Number.isFinite(a.runwayDays) ? Math.max(0, Math.floor(a.runwayDays)) : null;
+  const runwayShort = runway !== null && runway < daysLeft;
+
+  const label =
+    userFilter === 'all' ? 'Available' : `Net after ${userFilter === 'mati' ? 'Mati' : 'Belu'}`;
 
   return (
-    <section className="reveal w-full pt-1 pb-6">
+    <section className="reveal w-full pt-1 flex flex-col gap-5">
       <div className="px-5">
         <h1 className="text-[10px] font-mono uppercase tracking-[0.24em] text-[var(--color-ink-3)] mb-2">
           {label}
         </h1>
 
-        <Amount value={netAvailableCash} size="hero" animate className="text-[var(--color-ink)]" />
+        <Amount
+          value={a.net}
+          size="hero"
+          animate
+          className={a.net < 0 ? 'text-[var(--color-terracotta-dp)]' : 'text-[var(--color-ink)]'}
+        />
 
         {/* Runway strip. Three readings on one baseline, receipt-style. */}
         <dl
@@ -34,41 +50,43 @@ export const StatementHeroCard: React.FC = () => {
           className="reveal mt-4 grid grid-cols-3 border-y border-[var(--color-ink)]/12 divide-x divide-[var(--color-ink)]/12"
         >
           <div className="py-2.5 pr-3">
-            <dt className="text-[9px] font-mono uppercase tracking-[0.16em] text-[var(--color-ink-3)]">
+            <dt className="flex items-center gap-1.5 text-[9px] font-mono uppercase tracking-[0.14em] text-[var(--color-ink-3)]">
+              <Gauge size={10} strokeWidth={2.25} aria-hidden="true" />
               Safe / day
             </dt>
             <dd className="font-display font-semibold text-base tabular mt-1">
-              ${dailySafeBurnRate.toLocaleString('en-US')}
+              ${safePerDay.toLocaleString('en-US')}
             </dd>
           </div>
+
           <div className="py-2.5 px-3">
-            <dt className="text-[9px] font-mono uppercase tracking-[0.16em] text-[var(--color-ink-3)]">
+            <dt className="flex items-center gap-1.5 text-[9px] font-mono uppercase tracking-[0.14em] text-[var(--color-ink-3)]">
+              <CalendarDays size={10} strokeWidth={2.25} aria-hidden="true" />
               Days left
             </dt>
-            <dd className="font-display font-semibold text-base tabular mt-1">{daysRemaining}</dd>
+            <dd className="font-display font-semibold text-base tabular mt-1">{daysLeft}</dd>
           </div>
+
           <div className="py-2.5 pl-3">
-            <dt className="text-[9px] font-mono uppercase tracking-[0.16em] text-[var(--color-ink-3)]">
-              Month flow
+            <dt className="flex items-center gap-1.5 text-[9px] font-mono uppercase tracking-[0.14em] text-[var(--color-ink-3)]">
+              <Timer size={10} strokeWidth={2.25} aria-hidden="true" />
+              Runway
             </dt>
-            <dd className="flex items-center gap-1 mt-1">
-              {isPositive ? (
-                <TrendingUp size={14} className="text-[var(--color-mustard-dp)]" strokeWidth={2.25} />
-              ) : (
-                <TrendingDown size={14} className="text-[var(--color-terracotta-dp)]" strokeWidth={2.25} />
-              )}
-              <span className="font-display font-semibold text-base tabular">
-                {totalIncome > 0 ? Math.round((totalExpenses / totalIncome) * 100) : 0}%
+            <dd
+              className={`font-display font-semibold text-base tabular mt-1 ${
+                runwayShort ? 'text-[var(--color-terracotta-dp)]' : ''
+              }`}
+            >
+              {runway === null ? '∞' : runway > 99 ? '99+' : runway}
+              <span className="text-[9px] font-mono font-normal text-[var(--color-ink-3)] ml-1">
+                {runway === null ? 'no burn' : 'days'}
               </span>
-              <span className="text-[9px] font-mono text-[var(--color-ink-3)]">spent</span>
             </dd>
           </div>
         </dl>
       </div>
 
-      <div className="mt-5">
-        <InteractiveHeroChart />
-      </div>
+      <BalanceTrace />
     </section>
   );
 };

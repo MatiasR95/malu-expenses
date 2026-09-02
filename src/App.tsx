@@ -85,6 +85,7 @@ const MainAppContent: React.FC = () => {
             <HomeScreen
               onEditExpense={setSelectedEditingExpense}
               onAdd={() => handleOpenQuickAdd('expense')}
+              onSeeCategories={() => setActiveTab('analytics')}
             />
           )}
 

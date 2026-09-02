@@ -2,8 +2,13 @@ import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { CreditCard, ArrowRight, Plus, SlidersHorizontal } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
+import { rollUpCategories, useMonthAnalytics } from '../../lib/analytics';
 import { CategoryIcon } from '../common/CategoryIcon';
 import { Amount } from '../common/Amount';
+import { MonthHistoryBars } from '../dashboard/MonthHistoryBars';
+import { SpendHeatGrid } from '../dashboard/SpendHeatGrid';
+import { WeekdayRhythm } from '../dashboard/WeekdayRhythm';
+import { formatARS } from '../../utils/currency';
 import { PRESS } from '../../lib/motion';
 
 interface Props {
@@ -17,33 +22,23 @@ export const ExpenseAnalyticsScreen: React.FC<Props> = ({
   onOpenCreditCardSplitter,
   onOpenCategories,
 }) => {
-  const { monthlySummary, categories, userFilter } = useFinance();
-  const { totalExpenses, byCategory, byLogger } = monthlySummary;
+  const { incomes, expenses, categories, selectedMonth, userFilter, monthlySummary } = useFinance();
+  const a = useMonthAnalytics({ incomes, expenses, selectedMonth, userFilter }, categories);
+  const { byLogger } = monthlySummary;
 
-  /* The old build printed the raw category id here -- rows read
-     "supermercado" / "gym_operacion" instead of the names the user gave them
-     in settings. Resolve against the category list, and keep the id only as a
-     last-resort fallback for rows whose category was since deleted. */
   const ranked = useMemo(
-    () =>
-      Object.entries(byCategory)
-        .map(([id, amount]) => {
-          const cat = categories.find((c) => c.id === id);
-          return {
-            id,
-            name: cat?.name ?? id,
-            icon: cat?.icon ?? id,
-            color: cat?.color,
-            budget: cat?.monthlyBudget,
-            amount,
-            share: totalExpenses > 0 ? (amount / totalExpenses) * 100 : 0,
-          };
-        })
-        .sort((a, b) => b.amount - a.amount),
-    [byCategory, categories, totalExpenses]
+    () => rollUpCategories(expenses, categories, selectedMonth, userFilter),
+    [expenses, categories, selectedMonth, userFilter]
   );
 
-  const topShare = ranked[0]?.share ?? 1;
+  const topShare = ranked[0]?.share || 1;
+
+  /* A month that has spent half a percent of its inflow should not report
+     "0% of inflow" -- rounding a real, non-zero figure down to nothing reads
+     as a bug rather than as good news. */
+  const rawShare = a.totalIncome > 0 ? (a.totalSpend / a.totalIncome) * 100 : 0;
+  const shareOfInflow =
+    rawShare > 0 && rawShare < 1 ? '<1%' : `${Math.round(rawShare)}%`;
   const splitTotal = byLogger.mati + byLogger.belu;
   const matiShare = splitTotal > 0 ? (byLogger.mati / splitTotal) * 100 : 50;
 
@@ -54,16 +49,27 @@ export const ExpenseAnalyticsScreen: React.FC<Props> = ({
         <h1 className="text-[10px] font-mono uppercase tracking-[0.24em] text-[var(--color-ink-3)] mb-2">
           {userFilter === 'all' ? 'Spent this month' : `Spent · ${userFilter}`}
         </h1>
-        <Amount value={totalExpenses} size="hero" animate />
+        <Amount value={a.totalSpend} size="hero" animate />
 
-        {/* Who paid. `byLogger` was computed on every render and shown nowhere. */}
+        <p className="mt-2 text-[10px] font-mono uppercase tracking-[0.12em] text-[var(--color-ink-3)]">
+          {formatARS(Math.round(a.avgDailySpend), { compact: true })} / day · {shareOfInflow} of
+          inflow
+        </p>
+
+        {/* Who paid. */}
         {userFilter === 'all' && splitTotal > 0 && (
           <div className="mt-5">
             <div className="flex items-center justify-between text-[9px] font-mono uppercase tracking-[0.16em] text-[var(--color-ink-3)] mb-1.5">
-              <span>Mati ${Math.round(byLogger.mati).toLocaleString('en-US')}</span>
-              <span>Belu ${Math.round(byLogger.belu).toLocaleString('en-US')}</span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 bg-[var(--color-ink)]" aria-hidden="true" />
+                Mati {formatARS(byLogger.mati, { compact: true })}
+              </span>
+              <span className="flex items-center gap-1.5">
+                Belu {formatARS(byLogger.belu, { compact: true })}
+                <span className="w-2 h-2 bg-[var(--color-terracotta)]" aria-hidden="true" />
+              </span>
             </div>
-            <div className="w-full h-2 flex bg-[var(--color-ink)]/10 overflow-hidden">
+            <div className="w-full h-2.5 flex bg-[var(--color-ink)]/10 overflow-hidden">
               <div
                 style={{ width: `${matiShare}%` }}
                 className="h-full bg-[var(--color-ink)] transition-[width] duration-700 ease-out"
@@ -97,38 +103,41 @@ export const ExpenseAnalyticsScreen: React.FC<Props> = ({
         </motion.button>
       </div>
 
-      {/* Ranked categories */}
-      <section className="w-full bg-[var(--color-olive-2)] text-white flex-1">
-        <div className="px-5 py-2.5 flex items-center justify-between gap-3 rule-light">
-          <h2 className="text-[10px] font-mono uppercase tracking-[0.24em] text-white/70">
-            By category
-          </h2>
-          {/* Editing categories lives here rather than in the action hub: the
-              hub is for logging a transaction, and this is the one screen
-              where you are already looking at the category list. */}
-          <motion.button
-            type="button"
-            whileTap={PRESS}
-            onClick={onOpenCategories}
-            className="h-9 px-2 -mr-2 flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.16em] text-[var(--color-mustard)]"
-          >
-            <SlidersHorizontal size={12} />
-            Manage
-          </motion.button>
-        </div>
+      {/* The dark analysis block: history, calendar, rhythm, then the ranking.
+          Everything below this line is a picture of the same month; keeping it
+          on one continuous ink field stops the screen reading as five loose
+          cards. */}
+      <div className="w-full bg-[var(--color-olive-2)] text-white flex-1 flex flex-col">
+        <MonthHistoryBars />
+        <SpendHeatGrid />
+        <WeekdayRhythm />
 
-        {ranked.length === 0 ? (
-          <div className="px-6 py-14 text-center">
-            <p className="font-display font-medium text-xl">No spending yet</p>
-            <p className="text-[11px] font-mono uppercase tracking-[0.16em] text-white/45 mt-1.5">
-              Categories fill in as you log
-            </p>
+        <section className="flex flex-col">
+          <div className="px-5 py-2.5 flex items-center justify-between gap-3 rule-light bg-black/10">
+            <h2 className="text-[10px] font-mono uppercase tracking-[0.24em] text-white/70">
+              By category
+            </h2>
+            <motion.button
+              type="button"
+              whileTap={PRESS}
+              onClick={onOpenCategories}
+              className="h-9 px-2 -mr-2 flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.16em] text-[var(--color-mustard)]"
+            >
+              <SlidersHorizontal size={12} />
+              Manage
+            </motion.button>
           </div>
-        ) : (
-          <ul>
-            {ranked.map((row, i) => {
-              const overBudget = row.budget != null && row.amount > row.budget;
-              return (
+
+          {ranked.length === 0 ? (
+            <div className="px-6 py-14 text-center">
+              <p className="font-display font-medium text-xl">No spending yet</p>
+              <p className="text-[11px] font-mono uppercase tracking-[0.16em] text-white/45 mt-1.5">
+                Categories fill in as you log
+              </p>
+            </div>
+          ) : (
+            <ul>
+              {ranked.map((row, i) => (
                 <li
                   key={row.id}
                   className="reveal-item"
@@ -148,7 +157,7 @@ export const ExpenseAnalyticsScreen: React.FC<Props> = ({
                       style={{
                         transform: `scaleX(${row.share / topShare})`,
                         transformOrigin: 'left',
-                        backgroundColor: row.color ?? '#ffffff',
+                        backgroundColor: row.color,
                       }}
                       className="absolute inset-y-0 left-0 w-full opacity-[0.14] pointer-events-none"
                     />
@@ -157,16 +166,44 @@ export const ExpenseAnalyticsScreen: React.FC<Props> = ({
                       <span className="w-9 h-9 shrink-0 border border-white/20 flex items-center justify-center">
                         <CategoryIcon name={row.icon} size={16} color={row.color} />
                       </span>
-                      <span className="min-w-0 flex flex-col">
+                      <span className="min-w-0 flex flex-col gap-1">
                         <span className="font-display font-medium text-base tracking-wide truncate">
                           {row.name}
                         </span>
-                        <span className="text-[9px] font-mono uppercase tracking-[0.16em] text-white/50 mt-0.5 flex items-center gap-1.5">
-                          {Math.round(row.share)}% of total
-                          {overBudget && (
-                            <span className="text-[var(--color-terracotta)] font-bold">· over</span>
-                          )}
+                        <span className="text-[9px] font-mono uppercase tracking-[0.16em] text-white/50 flex items-center gap-1.5">
+                          {Math.round(row.share)}% · {row.count}{' '}
+                          {row.count === 1 ? 'entry' : 'entries'}
                         </span>
+
+                        {/* Budget bar. Every default category ships with a
+                            monthly budget that nothing in the app has ever
+                            drawn -- so a category could sit 60% over and the
+                            row looked exactly like one at 10%. */}
+                        {row.budgetUsed != null && (
+                          <span className="flex items-center gap-2 mt-0.5">
+                            <span className="w-20 h-1 bg-white/15 shrink-0" aria-hidden="true">
+                              <span
+                                className={`block h-full ${
+                                  row.overBudget
+                                    ? 'bg-[var(--color-terracotta)]'
+                                    : 'bg-[var(--color-mustard)]'
+                                }`}
+                                style={{ width: `${Math.min(100, row.budgetUsed * 100)}%` }}
+                              />
+                            </span>
+                            <span
+                              className={`text-[8px] font-mono uppercase tracking-[0.12em] ${
+                                row.overBudget
+                                  ? 'text-[var(--color-terracotta)] font-bold'
+                                  : 'text-white/45'
+                              }`}
+                            >
+                              {Math.round(row.budgetUsed * 100)}% of{' '}
+                              {formatARS(row.budget!, { compact: true })}
+                              {row.overBudget && ' · over'}
+                            </span>
+                          </span>
+                        )}
                       </span>
                     </span>
 
@@ -180,11 +217,11 @@ export const ExpenseAnalyticsScreen: React.FC<Props> = ({
                     </span>
                   </motion.button>
                 </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
     </div>
   );
 };
