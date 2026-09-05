@@ -13,6 +13,26 @@ export function parseLocalDate(iso: string): Date {
 }
 
 /**
+ * Ledger ordering comparator: newest row first.
+ *
+ * Sorting on `date` alone only resolves to the day, so everything logged today
+ * ties -- and a tie falls back to whatever order the array happens to be in.
+ * Locally that is insertion order (newest first, because writes prepend), but
+ * a backend sync replaces the array with the sheet's own order, which is
+ * append order: oldest first. The same list therefore flipped direction the
+ * moment a sync landed. `createdAt` breaks the tie by the moment the row was
+ * actually written, which is stable across both.
+ */
+export function newestFirst(
+  a: { date: string; createdAt?: string },
+  b: { date: string; createdAt?: string }
+): number {
+  const byDate = parseLocalDate(b.date).getTime() - parseLocalDate(a.date).getTime();
+  if (byDate !== 0) return byDate;
+  return (b.createdAt || '').localeCompare(a.createdAt || '');
+}
+
+/**
  * Ledger date, e.g. `01 Sep`.
  *
  * This was the only thing the app used date-fns for -- one call, one format

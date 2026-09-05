@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Delete, Check, Users, Zap, Building2, PiggyBank } from 'lucide-react';
+import { Delete, Check, Users, Zap, Building2, PiggyBank, CreditCard } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
+import { PaymentMethod } from '../../types/finance';
 import { Sheet } from '../common/Sheet';
 import { CategoryIcon } from '../common/CategoryIcon';
 import { Amount } from '../common/Amount';
@@ -76,7 +77,8 @@ export const QuickAddModal: React.FC<Props> = ({
   const [amountStr, setAmountStr] = useState('0');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedLogger, setSelectedLogger] = useState<'mati' | 'belu'>('mati');
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'transferencia' | 'efectivo'>('transferencia');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>('transferencia');
+  const [note, setNote] = useState('');
   const [incomeType, setIncomeType] = useState<IncomeType>('cuota');
   const [memberName, setMemberName] = useState('');
   const [selectedSupplement, setSelectedSupplement] = useState('');
@@ -86,6 +88,8 @@ export const QuickAddModal: React.FC<Props> = ({
     setMode(initialMode);
     setAmountStr('0');
     setMemberName('');
+    setNote('');
+    setSelectedPaymentMethod('transferencia');
     if (initialMode === 'expense') {
       setSelectedCategory(initialCategoryId || categories[0]?.id || '');
     } else {
@@ -129,6 +133,7 @@ export const QuickAddModal: React.FC<Props> = ({
         categoryId: selectedCategory,
         loggedBy: selectedLogger,
         paymentMethod: selectedPaymentMethod,
+        note: note.trim() || undefined,
         date,
       });
     } else if (incomeType === 'cuota') {
@@ -272,15 +277,50 @@ export const QuickAddModal: React.FC<Props> = ({
               options={[{ id: 'mati', label: 'Mati' }, { id: 'belu', label: 'Belu' }]}
             />
 
+            {/* Four methods, not two. `credito` existed in the model and in
+                the edit sheet, but the one screen that logs most rows could
+                only say transfer or cash -- so anything put on the card had to
+                be logged wrong and corrected afterwards. */}
             <Segmented
               label="Method"
               value={selectedPaymentMethod}
               onChange={setSelectedPaymentMethod}
               options={[
                 { id: 'transferencia', label: 'Transfer' },
+                { id: 'credito', label: 'Card' },
+                { id: 'debito', label: 'Debit' },
                 { id: 'efectivo', label: 'Cash' },
               ]}
             />
+
+            {selectedPaymentMethod === 'credito' && (
+              <p className="-mt-2.5 flex items-center gap-1.5 text-[9px] font-mono uppercase tracking-[0.14em] text-[var(--color-terracotta-dp)]">
+                <CreditCard size={11} strokeWidth={2.5} />
+                Marked on the card · counts toward the statement
+              </p>
+            )}
+
+            {/* Note. Optional, and last, so it never stands between the
+                keypad and a confirmed row -- but present, because half of
+                what makes an entry legible a week later is one line of
+                context the category cannot carry. */}
+            <div>
+              <label
+                htmlFor="quick-note"
+                className="text-[10px] font-mono uppercase tracking-[0.2em] text-[var(--color-ink-3)] block mb-2"
+              >
+                Note <span className="opacity-50">· optional</span>
+              </label>
+              <input
+                id="quick-note"
+                type="text"
+                autoComplete="off"
+                placeholder="What was it?"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                className="w-full h-12 bg-[var(--color-paper-hi)] border-2 border-[var(--color-ink)] px-3 text-sm text-[var(--color-ink)] placeholder-[var(--color-ink)]/35 outline-none focus:block-shadow-sm transition-shadow"
+              />
+            </div>
           </>
         ) : (
           <fieldset>

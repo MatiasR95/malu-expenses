@@ -5,6 +5,7 @@ import { useFinance } from '../../context/FinanceContext';
 import { Expense, PaymentMethod, UserId } from '../../types/finance';
 import { Sheet } from '../common/Sheet';
 import { CategoryIcon } from '../common/CategoryIcon';
+import { CardMark } from '../common/CardMark';
 import { EASE_OUT, PRESS, PRESS_HARD } from '../../lib/motion';
 
 interface EditExpenseModalProps {
@@ -207,6 +208,16 @@ export const EditExpenseModal: React.FC<EditExpenseModalProps> = ({ expense, isO
             />
           </div>
         </div>
+
+        {/* Provenance. A row that arrived through the statement parser says so
+            here -- otherwise, once it is dated into the middle of the month,
+            there is no way to tell it from something typed by hand. */}
+        {expense?.cardBatchId && (
+          <p className="flex items-center gap-2 text-[9px] font-mono uppercase tracking-[0.14em] text-[var(--color-ink-3)]">
+            <CardMark batchId={expense.cardBatchId} size="md" />
+            Posted from a statement batch
+          </p>
+        )}
       </form>
     </Sheet>
   );

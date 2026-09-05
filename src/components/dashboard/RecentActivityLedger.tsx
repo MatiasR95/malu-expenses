@@ -5,7 +5,8 @@ import { useFinance } from '../../context/FinanceContext';
 import { Expense } from '../../types/finance';
 import { CategoryIcon } from '../common/CategoryIcon';
 import { Amount } from '../common/Amount';
-import { formatDayMonth, parseLocalDate } from '../../utils/currency';
+import { CardMark, CardStripe } from '../common/CardMark';
+import { formatDayMonth, newestFirst } from '../../utils/currency';
 import { PRESS } from '../../lib/motion';
 
 interface Props {
@@ -29,7 +30,7 @@ export const RecentActivityLedger: React.FC<Props> = ({ onExpenseClick, onAdd })
 
   const filtered = expenses
     .filter((e) => userFilter === 'all' || e.loggedBy === userFilter)
-    .sort((a, b) => parseLocalDate(b.date).getTime() - parseLocalDate(a.date).getTime());
+    .sort(newestFirst);
 
   const rows = filtered.slice(0, visible);
 
@@ -72,6 +73,7 @@ export const RecentActivityLedger: React.FC<Props> = ({ onExpenseClick, onAdd })
       <ul className="w-full flex flex-col">
         {rows.map((expense, i) => {
           const category = categories.find((c) => c.id === expense.categoryId);
+          const onCard = expense.paymentMethod === 'credito';
           return (
             <li
               key={expense.id}
@@ -82,10 +84,12 @@ export const RecentActivityLedger: React.FC<Props> = ({ onExpenseClick, onAdd })
                   type="button"
                   whileTap={PRESS}
                   onClick={() => onExpenseClick(expense)}
-                  className={`w-full px-5 py-4 flex items-center justify-between gap-4 text-left rule-light hover:brightness-[1.08] transition-[filter] ${
-                    ROW_TONES[i % ROW_TONES.length]
-                  }`}
+                  className={`relative w-full py-4 pr-5 flex items-center justify-between gap-4 text-left rule-light hover:brightness-[1.08] transition-[filter] ${
+                    onCard ? 'pl-[calc(1.25rem+3px)]' : 'pl-5'
+                  } ${ROW_TONES[i % ROW_TONES.length]}`}
                 >
+                  {onCard && <CardStripe />}
+
                   <span className="flex items-center gap-3.5 min-w-0">
                     <span className="w-9 h-9 shrink-0 border border-current/30 flex items-center justify-center opacity-80">
                       <CategoryIcon name={category?.icon ?? 'Tag'} size={16} strokeWidth={1.75} />
@@ -94,10 +98,13 @@ export const RecentActivityLedger: React.FC<Props> = ({ onExpenseClick, onAdd })
                       <span className="font-display font-medium text-[15px] tracking-wide leading-snug truncate">
                         {expense.note || category?.name || 'Expense'}
                       </span>
-                      <span className="text-[9px] font-mono uppercase tracking-[0.14em] opacity-55 mt-1 flex items-center gap-1.5">
-                        <span className="truncate">{category?.name ?? 'Uncategorised'}</span>
-                        <span className="opacity-50 shrink-0">/</span>
-                        <span className="shrink-0">{expense.loggedBy}</span>
+                      <span className="text-[9px] font-mono uppercase tracking-[0.14em] mt-1 flex items-center gap-1.5">
+                        {onCard && <CardMark batchId={expense.cardBatchId} />}
+                        <span className="truncate opacity-55">
+                          {category?.name ?? 'Uncategorised'}
+                        </span>
+                        <span className="opacity-30 shrink-0">/</span>
+                        <span className="shrink-0 opacity-55">{expense.loggedBy}</span>
                       </span>
                     </span>
                   </span>

@@ -71,6 +71,14 @@ export interface Expense {
   paymentMethod: PaymentMethod;
   isRecurring?: boolean;
   recurringCommitmentId?: string;
+  /**
+   * Set on every row posted together from one credit-card statement.
+   *
+   * `paymentMethod: 'credito'` already says the money left on the card; this
+   * says *which* statement it came off, so a batch stays a recognisable set
+   * once its rows are scattered through the month by date.
+   */
+  cardBatchId?: string;
   createdAt: string;
 }
 

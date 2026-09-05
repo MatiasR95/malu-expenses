@@ -80,19 +80,37 @@ function buildCORSResponse(output) {
 
 // --- Core Logic ---
 
+const SCHEMA = {
+  Expenses: ['id', 'date', 'amount', 'categoryId', 'note', 'loggedBy', 'paymentMethod', 'isRecurring', 'cardBatchId', 'createdAt'],
+  Incomes: ['id', 'date', 'amount', 'source', 'platform', 'forceDetails', 'notes', 'createdBy', 'createdAt'],
+  Recurring: ['id', 'recurringId', 'monthKey', 'createdAt'],
+};
+
 function getSheet(sheetName) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName(sheetName);
+  const schema = SCHEMA[sheetName];
+
   if (!sheet) {
     sheet = ss.insertSheet(sheetName);
-    if (sheetName === 'Expenses') {
-      sheet.appendRow(['id', 'date', 'amount', 'categoryId', 'note', 'loggedBy', 'paymentMethod', 'isRecurring', 'createdAt']);
-    } else if (sheetName === 'Incomes') {
-      sheet.appendRow(['id', 'date', 'amount', 'source', 'platform', 'forceDetails', 'notes', 'createdBy', 'createdAt']);
-    } else if (sheetName === 'Recurring') {
-      sheet.appendRow(['id', 'recurringId', 'monthKey', 'createdAt']);
+    if (schema) sheet.appendRow(schema);
+    return sheet;
+  }
+
+  /* Bring an already-created sheet up to the current schema.
+     `addRow` writes by header name, so a field the sheet has never heard of
+     is silently dropped on write and comes back missing on the next fetch --
+     which is how a new column would quietly fail rather than error. Missing
+     headers are appended on the end; existing columns are never moved, so
+     nothing that is already in the sheet shifts underneath its data. */
+  if (schema && sheet.getLastColumn() > 0) {
+    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const missing = schema.filter(function (h) { return headers.indexOf(h) === -1; });
+    if (missing.length > 0) {
+      sheet.getRange(1, headers.length + 1, 1, missing.length).setValues([missing]);
     }
   }
+
   return sheet;
 }
 

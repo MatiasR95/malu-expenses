@@ -1,12 +1,12 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Check, ShoppingBag, Building2, PiggyBank, ArrowDownLeft, Pencil, Settings2 } from 'lucide-react';
+import { Plus, Check, ShoppingBag, Building2, PiggyBank, ArrowDownLeft, Pencil, Settings2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { FORCE_REGULAR_MEMBERS } from '../../data/initialData';
 import { StepLineChart } from '../dashboard/StepLineChart';
 import { Amount } from '../common/Amount';
 import { CategoryIcon } from '../common/CategoryIcon';
-import { formatDayMonth, parseLocalDate } from '../../utils/currency';
+import { formatDayMonth, newestFirst, parseLocalDate } from '../../utils/currency';
 import { Income } from '../../types/finance';
 import { PRESS, PRESS_HARD } from '../../lib/motion';
 import { tick } from '../../utils/haptics';
@@ -18,6 +18,9 @@ interface Props {
 }
 
 const FORCE_TARGET = 1_500_000;
+/** Gym inflows shown before the list folds. A busy month runs to dozens of
+    rows, and all anyone checks on arrival is that the last few landed. */
+const LEDGER_PAGE = 5;
 /** Tiles shown in the check-in grid. A gym with years of history has hundreds
     of past members; the ones worth a thumb are the recent, still-unpaid few. */
 const ROSTER_LIMIT = 24;
@@ -51,19 +54,23 @@ const Rule: React.FC<{ title: string; right?: React.ReactNode; dark?: boolean }>
 
 export const IncomeDashboardScreen: React.FC<Props> = ({ onOpenQuickAdd, onEditIncome, onOpenSupplements }) => {
   const { monthlySummary, addIncome, incomes, selectedMonth, supplements } = useFinance();
+  const [ledgerExpanded, setLedgerExpanded] = useState(false);
 
   const today = new Date();
   const progress = Math.min(100, Math.round((monthlySummary.forceGymTotal / FORCE_TARGET) * 100));
 
   const monthIncomes = useMemo(
-    () =>
-      incomes
-        .filter((i) => i.date.startsWith(selectedMonth))
-        .sort((a, b) => parseLocalDate(b.date).getTime() - parseLocalDate(a.date).getTime()),
+    () => incomes.filter((i) => i.date.startsWith(selectedMonth)).sort(newestFirst),
     [incomes, selectedMonth]
   );
 
   const gymIncomes = monthIncomes.filter((i) => i.source === 'force_gym');
+
+  /* Folded to the latest few by default. Everything else is still one tap
+     away -- and the count on the toggle says how much is under it, so the
+     fold never hides the fact that there is more. */
+  const visibleGymIncomes = ledgerExpanded ? gymIncomes : gymIncomes.slice(0, LEDGER_PAGE);
+  const hiddenGymCount = gymIncomes.length - LEDGER_PAGE;
 
   /** Members already checked in this month — drives the paid state below. */
   const paidMembers = useMemo(
@@ -90,7 +97,7 @@ export const IncomeDashboardScreen: React.FC<Props> = ({ onOpenQuickAdd, onEditI
 
     [...incomes]
       .filter((i) => i.source === 'force_gym' && i.forceDetails?.type === 'cuota')
-      .sort((a, b) => parseLocalDate(b.date).getTime() - parseLocalDate(a.date).getTime())
+      .sort(newestFirst)
       .forEach((i) => {
         const name = i.forceDetails?.memberName?.trim();
         if (!name) return;
@@ -179,11 +186,86 @@ export const IncomeDashboardScreen: React.FC<Props> = ({ onOpenQuickAdd, onEditI
         </div>
       </section>
 
+      {/* Store.
+          Sits directly under the revenue head, above the member grid: selling
+          a bar or a tub is the fastest, most frequent thing that happens on
+          this screen, and it used to be the last block on it -- four sections
+          and a full scroll away from the thumb that came here to log one. */}
+      <section
+        className="reveal w-full bg-[var(--color-olive-1)] text-white px-5 py-6"
+        style={{ animationDelay: '70ms' }}
+      >
+        <Rule
+          title="Supplement store"
+          right={
+            <motion.button
+              type="button"
+              whileTap={PRESS}
+              onClick={onOpenSupplements}
+              aria-label="Manage products"
+              className="flex items-center gap-1.5 h-9 px-2 -mr-2 text-[10px] font-mono uppercase tracking-[0.14em] text-[var(--color-terracotta)]"
+            >
+              <Settings2 size={12} /> Manage
+            </motion.button>
+          }
+        />
+
+        {supplements.length === 0 ? (
+          <button
+            type="button"
+            onClick={onOpenSupplements}
+            className="w-full py-8 text-center text-white/40 text-[11px] font-mono uppercase tracking-[0.16em] border-2 border-dashed border-white/15 hover:border-white/30 transition-colors"
+          >
+            <ShoppingBag size={16} className="mx-auto mb-2 opacity-60" />
+            No products yet · tap to add one
+          </button>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            {supplements.map((product, i) => (
+              <div
+                key={product.id}
+                style={{ '--i': i } as React.CSSProperties}
+                className="reveal-item w-full flex items-center gap-1.5"
+              >
+                <motion.button
+                  type="button"
+                  whileTap={PRESS}
+                  onClick={() =>
+                    logIncome(
+                      product.defaultPrice,
+                      { type: 'suplemento', productTag: product.name },
+                      `Store Sale - ${product.name}`
+                    )
+                  }
+                  aria-label={`Log a sale of ${product.name}`}
+                  className="flex-1 min-w-0 px-4 py-3.5 bg-[var(--color-olive-2)] hover:bg-[var(--color-olive-3)] transition-colors flex items-center gap-3 text-left"
+                >
+                  <span className="w-8 h-8 shrink-0 border border-white/20 flex items-center justify-center">
+                    <CategoryIcon name={product.icon} size={14} className="text-[var(--color-mustard)]" />
+                  </span>
+                  <span className="min-w-0 flex-1 flex flex-col">
+                    <span className="font-display font-medium text-sm tracking-wide truncate">
+                      {product.name}
+                    </span>
+                    <span className="text-[10px] font-mono tabular text-[var(--color-mustard)] mt-0.5">
+                      ${product.defaultPrice.toLocaleString('en-US')}
+                    </span>
+                  </span>
+                  <span className="shrink-0 h-9 px-3 bg-[var(--color-olive-4)] flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.16em] font-bold">
+                    <Plus size={12} strokeWidth={3} /> Sell
+                  </span>
+                </motion.button>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
       {/* One-tap member check-in.
           The handler for this existed in the old build but nothing rendered
           it, so the headline feature of this screen -- log a member's dues in
           a single tap -- was unreachable. */}
-      <section className="reveal w-full px-5 py-6 bg-[var(--color-olive-2)] text-white" style={{ animationDelay: '70ms' }}>
+      <section className="reveal w-full px-5 py-6 bg-[var(--color-olive-2)] text-white" style={{ animationDelay: '110ms' }}>
         <Rule
           title="Member check-in"
           right={
@@ -251,7 +333,7 @@ export const IncomeDashboardScreen: React.FC<Props> = ({ onOpenQuickAdd, onEditI
           and both need to stay out of the Force totals above. */}
       <section
         className="reveal w-full bg-[var(--color-paper-hi)] text-[var(--color-ink)] px-5 py-5"
-        style={{ animationDelay: '110ms' }}
+        style={{ animationDelay: '150ms' }}
       >
         <Rule title="Other inflows" dark={false} />
 
@@ -308,19 +390,24 @@ export const IncomeDashboardScreen: React.FC<Props> = ({ onOpenQuickAdd, onEditI
         </ul>
       </section>
 
-      {/* Gym ledger */}
-      <section className="w-full bg-[var(--color-olive-2)] text-white px-5 py-6">
+      {/* Gym ledger. Last block on the screen, so it carries the tail padding. */}
+      <section className="w-full bg-[var(--color-olive-2)] text-white px-5 py-6 pb-10">
         <Rule
           title="Gym inflows"
           right={
-            <motion.button
-              type="button"
-              whileTap={PRESS}
-              onClick={() => onOpenQuickAdd('income')}
-              className="h-9 px-2 -mr-2 text-[var(--color-mustard)] text-[10px] font-mono uppercase tracking-[0.16em] font-bold flex items-center gap-1.5"
-            >
-              <Plus size={12} strokeWidth={3} /> Add
-            </motion.button>
+            <span className="flex items-center gap-3">
+              <span className="text-[10px] font-mono tabular text-white/45">
+                {gymIncomes.length}
+              </span>
+              <motion.button
+                type="button"
+                whileTap={PRESS}
+                onClick={() => onOpenQuickAdd('income')}
+                className="h-9 px-2 -mr-2 text-[var(--color-mustard)] text-[10px] font-mono uppercase tracking-[0.16em] font-bold flex items-center gap-1.5"
+              >
+                <Plus size={12} strokeWidth={3} /> Add
+              </motion.button>
+            </span>
           }
         />
 
@@ -330,7 +417,7 @@ export const IncomeDashboardScreen: React.FC<Props> = ({ onOpenQuickAdd, onEditI
           </p>
         ) : (
           <ul className="flex flex-col gap-1.5">
-            {gymIncomes.map((income, i) => (
+            {visibleGymIncomes.map((income, i) => (
               <li
                 key={income.id}
                 className="reveal-item"
@@ -366,75 +453,29 @@ export const IncomeDashboardScreen: React.FC<Props> = ({ onOpenQuickAdd, onEditI
             ))}
           </ul>
         )}
-      </section>
 
-      {/* Store */}
-      <section className="w-full bg-[var(--color-olive-1)] text-white px-5 py-6 pb-10">
-        <Rule
-          title="Supplement store"
-          right={
-            <motion.button
-              type="button"
-              whileTap={PRESS}
-              onClick={onOpenSupplements}
-              aria-label="Manage products"
-              className="flex items-center gap-1.5 h-9 px-2 -mr-2 text-[10px] font-mono uppercase tracking-[0.14em] text-[var(--color-terracotta)]"
-            >
-              <Settings2 size={12} /> Manage
-            </motion.button>
-          }
-        />
-
-        {supplements.length === 0 ? (
-          <button
+        {hiddenGymCount > 0 && (
+          <motion.button
             type="button"
-            onClick={onOpenSupplements}
-            className="w-full py-8 text-center text-white/40 text-[11px] font-mono uppercase tracking-[0.16em] border-2 border-dashed border-white/15 hover:border-white/30 transition-colors"
+            whileTap={PRESS}
+            onClick={() => setLedgerExpanded((v) => !v)}
+            aria-expanded={ledgerExpanded}
+            className="mt-2 w-full h-12 bg-[var(--color-olive-3)] hover:bg-[var(--color-olive-4)] transition-colors flex items-center justify-center gap-2 text-[10px] font-mono uppercase tracking-[0.18em] text-white/75"
           >
-            <ShoppingBag size={16} className="mx-auto mb-2 opacity-60" />
-            No products yet · tap to add one
-          </button>
-        ) : (
-          <div className="flex flex-col gap-1.5">
-            {supplements.map((product, i) => (
-              <div
-                key={product.id}
-                style={{ '--i': i } as React.CSSProperties}
-                className="reveal-item w-full flex items-center gap-1.5"
-              >
-                <motion.button
-                  type="button"
-                  whileTap={PRESS}
-                  onClick={() =>
-                    logIncome(
-                      product.defaultPrice,
-                      { type: 'suplemento', productTag: product.name },
-                      `Store Sale - ${product.name}`
-                    )
-                  }
-                  aria-label={`Log a sale of ${product.name}`}
-                  className="flex-1 min-w-0 px-4 py-3.5 bg-[var(--color-olive-2)] hover:bg-[var(--color-olive-3)] transition-colors flex items-center gap-3 text-left"
-                >
-                  <span className="w-8 h-8 shrink-0 border border-white/20 flex items-center justify-center">
-                    <CategoryIcon name={product.icon} size={14} className="text-[var(--color-mustard)]" />
-                  </span>
-                  <span className="min-w-0 flex-1 flex flex-col">
-                    <span className="font-display font-medium text-sm tracking-wide truncate">
-                      {product.name}
-                    </span>
-                    <span className="text-[10px] font-mono tabular text-[var(--color-mustard)] mt-0.5">
-                      ${product.defaultPrice.toLocaleString('en-US')}
-                    </span>
-                  </span>
-                  <span className="shrink-0 h-9 px-3 bg-[var(--color-olive-4)] flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.16em] font-bold">
-                    <Plus size={12} strokeWidth={3} /> Sell
-                  </span>
-                </motion.button>
-              </div>
-            ))}
-          </div>
+            {ledgerExpanded ? (
+              <>
+                <ChevronUp size={13} /> Show the latest {LEDGER_PAGE}
+              </>
+            ) : (
+              <>
+                <ChevronDown size={13} /> {hiddenGymCount} earlier{' '}
+                {hiddenGymCount === 1 ? 'inflow' : 'inflows'}
+              </>
+            )}
+          </motion.button>
         )}
       </section>
+
     </div>
   );
 };

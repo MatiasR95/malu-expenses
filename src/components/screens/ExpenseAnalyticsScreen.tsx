@@ -1,10 +1,11 @@
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { CreditCard, ArrowRight, Plus, SlidersHorizontal } from 'lucide-react';
+import { Plus, SlidersHorizontal } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { rollUpCategories, useMonthAnalytics } from '../../lib/analytics';
 import { CategoryIcon } from '../common/CategoryIcon';
 import { Amount } from '../common/Amount';
+import { CardStatement } from '../dashboard/CardStatement';
 import { MonthHistoryBars } from '../dashboard/MonthHistoryBars';
 import { SpendHeatGrid } from '../dashboard/SpendHeatGrid';
 import { WeekdayRhythm } from '../dashboard/WeekdayRhythm';
@@ -80,27 +81,10 @@ export const ExpenseAnalyticsScreen: React.FC<Props> = ({
         )}
       </section>
 
-      {/* Statement parser */}
+      {/* The card. Both the month's running statement total and the way into
+          the parser that adds to it. */}
       <div className="reveal px-5 pb-5" style={{ animationDelay: '80ms' }}>
-        <motion.button
-          type="button"
-          onClick={onOpenCreditCardSplitter}
-          whileTap={PRESS}
-          className="w-full bg-[var(--color-terracotta)] text-white p-4 flex items-center justify-between gap-3 hover:brightness-110 transition-[filter]"
-        >
-          <span className="flex items-center gap-3 min-w-0">
-            <CreditCard size={20} strokeWidth={1.75} className="shrink-0" />
-            <span className="flex flex-col text-left min-w-0">
-              <span className="font-display font-medium text-lg tracking-wide leading-tight">
-                Split a card batch
-              </span>
-              <span className="text-[9px] font-mono uppercase tracking-[0.16em] opacity-75 mt-0.5">
-                Paste statement text
-              </span>
-            </span>
-          </span>
-          <ArrowRight size={18} className="shrink-0" />
-        </motion.button>
+        <CardStatement onOpenSplitter={onOpenCreditCardSplitter} />
       </div>
 
       {/* The dark analysis block: history, calendar, rhythm, then the ranking.

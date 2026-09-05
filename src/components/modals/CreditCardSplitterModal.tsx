@@ -95,6 +95,14 @@ export const CreditCardSplitterModal: React.FC<Props> = ({ isOpen, onClose }) =>
   };
 
   const handlePostAllExpenses = () => {
+    /* One id for the whole posting. The rows scatter through the month by
+       date once they land, so without this there is nothing left tying a
+       statement's slices back to each other. */
+    const cardBatchId = `batch-${Date.now().toString(36)}`;
+    /* Date only. `toISOString()` writes the time as well, which is not what
+       the rest of the ledger stores and not what a statement line means. */
+    const date = new Date().toISOString().split('T')[0];
+
     splitItems.forEach(item => {
       if (item.amount > 0) {
         addExpense({
@@ -103,7 +111,8 @@ export const CreditCardSplitterModal: React.FC<Props> = ({ isOpen, onClose }) =>
           loggedBy,
           paymentMethod: 'credito',
           note: item.note || undefined,
-          date: new Date().toISOString()
+          cardBatchId,
+          date,
         });
       }
     });
