@@ -185,6 +185,15 @@ function fetchForceGymIncomes() {
               } else if (rawDate) {
                 dateStr = String(rawDate);
               }
+
+              // The sheet parses dates month-first, so a day-first "10/08" in the
+              // Agosto tab arrives as 2026-10-08. Swap back when that lands the
+              // row in the tab's own month.
+              const tabMonth = validMonths.findIndex(m => sheetName.includes(m)) + 1;
+              const parts = dateStr.slice(0, 10).split('-').map(Number);
+              if (parts.length === 3 && parts[1] !== tabMonth && parts[2] === tabMonth) {
+                dateStr = parts[0] + '-' + String(parts[2]).padStart(2, '0') + '-' + String(parts[1]).padStart(2, '0');
+              }
               
               let amountVal = 0;
               const rawAmount = row[CONFIG.GYM_COL_AMOUNT];

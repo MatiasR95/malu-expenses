@@ -411,9 +411,9 @@ export const QuickAddModal: React.FC<Props> = ({
                 )}
                 {incomeType === 'carryover' && (
                   <p className="text-[10px] font-mono uppercase tracking-[0.14em] text-[var(--color-ink-3)] leading-relaxed mt-2">
-                    Cash you already had, not money earned this month. It counts
-                    toward what's available to spend but stays out of Force and
-                    salary totals.
+                    Only to correct the balance. Each month already starts with
+                    what the last one closed at -- log this to replace that with
+                    the real cash on hand. Stays out of Force and salary totals.
                   </p>
                 )}
               </motion.div>

@@ -54,6 +54,9 @@ export const MonthHistoryBars: React.FC = () => {
         <span className={shown.net < 0 ? 'text-[var(--color-terracotta)]' : 'text-[var(--color-mustard)]'}>
           net {formatARS(shown.net, { compact: true })}
         </span>
+        {shown.closing !== undefined && (
+          <> · bal {formatARS(shown.closing, { compact: true })}</>
+        )}
       </p>
 
       <ul className="flex items-end gap-2 h-28">

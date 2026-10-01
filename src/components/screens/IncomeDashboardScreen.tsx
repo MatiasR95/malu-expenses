@@ -27,7 +27,7 @@ const ROSTER_LIMIT = 24;
 
 const OTHER_INFLOWS = [
   { id: 'assurant' as const, icon: Building2, label: 'Assurant', hint: 'Corporate salary' },
-  { id: 'carryover' as const, icon: PiggyBank, label: 'Carry-over', hint: 'Left over from last month' },
+  { id: 'carryover' as const, icon: PiggyBank, label: 'Carry-over', hint: 'Resets the opening balance' },
 ];
 
 /** Section heading used down the whole screen. */

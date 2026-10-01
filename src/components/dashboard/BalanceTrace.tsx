@@ -113,7 +113,9 @@ export const BalanceTrace: React.FC = () => {
     };
   }, [a]);
 
-  if (!a.hasActivity || !chart) {
+  /* A fresh month with nothing logged still has money in it -- the balance
+     carried in. Draw that as a flat line rather than an empty box. */
+  if ((!a.hasActivity && a.openingBalance === 0) || !chart) {
     return (
       <div className="px-5">
         <div className="w-full h-32 border border-dashed border-[var(--color-ink)]/20 flex flex-col items-center justify-center gap-2 text-center px-6">
@@ -194,7 +196,7 @@ export const BalanceTrace: React.FC = () => {
           viewBox={`0 0 ${W} ${H}`}
           className="w-full h-auto touch-none select-none"
           role="img"
-          aria-label={`Running balance across ${a.bookedThrough} of ${a.shape.daysInMonth} days. Currently ${formatARS(Math.round(a.net))}, projected to close at ${formatARS(Math.round(chart.projectedEnd))}.`}
+          aria-label={`Running balance across ${a.bookedThrough} of ${a.shape.daysInMonth} days. Currently ${formatARS(Math.round(a.days[a.bookedThrough - 1]?.balance ?? a.net))}, projected to close at ${formatARS(Math.round(chart.projectedEnd))}.`}
           onPointerDown={(e) => {
             e.currentTarget.setPointerCapture(e.pointerId);
             setActiveIndex(readIndexFromEvent(e));

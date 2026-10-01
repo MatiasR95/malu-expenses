@@ -4,6 +4,7 @@ import { useFinance } from '../../context/FinanceContext';
 import { useMonthAnalytics } from '../../lib/analytics';
 import { BalanceTrace } from './BalanceTrace';
 import { Amount } from '../common/Amount';
+import { formatARS } from '../../utils/currency';
 
 /**
  * The statement head: what's left, what it burns down to, and the trace.
@@ -19,7 +20,15 @@ export const StatementHeroCard: React.FC = () => {
   const a = useMonthAnalytics({ incomes, expenses, selectedMonth, userFilter }, categories);
 
   const daysLeft = Math.max(0, a.shape.daysInMonth - a.shape.today);
-  const safePerDay = a.net > 0 && daysLeft > 0 ? Math.round(a.net / daysLeft) : 0;
+  /* The household view reads the account, not the month: what September left
+     behind is still money October can spend. A payer filter stays a reading
+     of this month alone, so it keeps the month's net. */
+  const headline = userFilter === 'all' ? a.balance : a.net;
+  const safePerDay = headline > 0 && daysLeft > 0 ? Math.round(headline / daysLeft) : 0;
+
+  const monthFlow = a.balance - a.carriedIn;
+  const [py, pm] = selectedMonth.split('-').map(Number);
+  const prevLabel = new Date(py, pm - 2, 1).toLocaleDateString('en-US', { month: 'short' });
 
   /* Runway is the honest version of "days left": how long the money lasts at
      the rate it is actually going out, which can be shorter *or* longer than
@@ -38,11 +47,29 @@ export const StatementHeroCard: React.FC = () => {
         </h1>
 
         <Amount
-          value={a.net}
+          value={headline}
           size="hero"
           animate
-          className={a.net < 0 ? 'text-[var(--color-terracotta-dp)]' : 'text-[var(--color-ink)]'}
+          className={headline < 0 ? 'text-[var(--color-terracotta-dp)]' : 'text-[var(--color-ink)]'}
         />
+
+        {/* Where the headline comes from: what came in from last month, and what
+            this month has added or taken away on top of it. */}
+        {userFilter === 'all' && a.chained && (
+          <p className="mt-2 text-[10px] font-mono uppercase tracking-[0.12em] tabular text-[var(--color-ink-3)]">
+            {a.carriedIn !== 0 && (
+              <>
+                From {prevLabel} {formatARS(a.carriedIn, { compact: true })}
+                {' · '}
+              </>
+            )}
+            This month{' '}
+            <span className={monthFlow < 0 ? 'text-[var(--color-terracotta-dp)]' : 'text-[var(--color-ink)]'}>
+              {monthFlow >= 0 ? '+' : '−'}
+              {formatARS(Math.abs(monthFlow), { compact: true })}
+            </span>
+          </p>
+        )}
 
         {/* Runway strip. Three readings on one baseline, receipt-style. */}
         <dl

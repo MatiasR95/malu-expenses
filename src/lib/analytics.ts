@@ -55,6 +55,76 @@ export function getMonthShape(monthKey: string): MonthShape {
 
 const dayOf = (iso: string) => Number(iso.slice(8, 10));
 
+/* -------------------------------------------------------------------------
+   Balance chain
+------------------------------------------------------------------------- */
+
+export interface MonthBalance {
+  /** Cash on hand going into the month (0 when the month re-anchors). */
+  opening: number;
+  /** Cash on hand at the end of the month, or right now for the current one. */
+  closing: number;
+}
+
+const monthKeyOf = (iso: string) => iso.slice(0, 7);
+
+function nextMonthKey(key: string): string {
+  const [y, m] = key.split('-').map(Number);
+  const d = new Date(y, m, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/**
+ * The household's money as one continuous account, month after month.
+ *
+ * Every figure used to be scoped to the month on screen, so the day October
+ * started the "available" headline fell to zero and the cash left in September
+ * simply vanished. Each month now opens with what the previous one closed at.
+ *
+ * The chain starts at the first carry-over row. Before that, the ledger only
+ * holds imported gym income with no spend against it -- summing it would invent
+ * millions that were spent long before the app existed. A carry-over logged in
+ * a later month re-anchors the chain: it states the real cash on hand, so it
+ * replaces the computed opening instead of being added on top of it. That is
+ * also how to reconcile against the bank -- log the true figure as carry-over.
+ */
+export function buildBalanceChain(
+  incomes: Income[],
+  expenses: Expense[],
+  throughMonth: string
+): Map<string, MonthBalance> {
+  const flow = new Map<string, { net: number; carry: number }>();
+  const bucket = (key: string) => {
+    let b = flow.get(key);
+    if (!b) flow.set(key, (b = { net: 0, carry: 0 }));
+    return b;
+  };
+
+  for (const i of incomes) {
+    const b = bucket(monthKeyOf(i.date));
+    b.net += i.amount;
+    if (i.source === 'carryover') b.carry += i.amount;
+  }
+  for (const e of expenses) bucket(monthKeyOf(e.date)).net -= e.amount;
+
+  const chain = new Map<string, MonthBalance>();
+  const anchored = Array.from(flow.entries())
+    .filter(([, b]) => b.carry > 0)
+    .map(([k]) => k)
+    .sort();
+  if (anchored.length === 0) return chain;
+
+  const lastKey = Array.from(flow.keys()).concat(throughMonth).sort().pop()!;
+  let closing = 0;
+  for (let key = anchored[0]; key <= lastKey; key = nextMonthKey(key)) {
+    const b = flow.get(key);
+    const opening = b && b.carry > 0 ? 0 : closing;
+    closing = opening + (b?.net ?? 0);
+    chain.set(key, { opening, closing });
+  }
+  return chain;
+}
+
 interface LedgerInput {
   incomes: Income[];
   expenses: Expense[];
@@ -64,6 +134,20 @@ interface LedgerInput {
 
 export interface MonthAnalytics {
   shape: MonthShape;
+  /**
+   * Cash carried in from the previous month. Household view only -- a payer
+   * filter is a reading of this month's spend, not of the account.
+   */
+  openingBalance: number;
+  /**
+   * Cash the month started with: the opening balance plus any carry-over row,
+   * since a carry-over states starting cash rather than money earned.
+   */
+  carriedIn: number;
+  /** True when the month sits on the balance chain (see buildBalanceChain). */
+  chained: boolean;
+  /** Opening plus this month's net: the money actually on hand. */
+  balance: number;
   /** One entry per day of the month, always full length. */
   days: DayPoint[];
   /** Days up to and including today — what actually happened. */
@@ -92,7 +176,7 @@ export interface MonthAnalytics {
   paceRatio: number;
   /** Projected end-of-month spend if the current rate holds. */
   projectedSpend: number;
-  /** Projected end-of-month balance if the current rate holds. */
+  /** Projected end-of-month cash on hand if the current rate holds. */
   projectedBalance: number;
   /** Days of runway left at the current average burn. Infinity if not spending. */
   runwayDays: number;
@@ -117,13 +201,19 @@ export function buildMonthAnalytics(
 ): MonthAnalytics {
   const shape = getMonthShape(selectedMonth);
 
+  const link =
+    userFilter === 'all'
+      ? buildBalanceChain(incomes, expenses, selectedMonth).get(selectedMonth)
+      : undefined;
+  const openingBalance = link?.opening ?? 0;
+
   const monthIncomes = incomes.filter((i) => i.date.startsWith(selectedMonth));
   const monthExpenses = expenses
     .filter((e) => e.date.startsWith(selectedMonth))
     .filter((e) => userFilter === 'all' || e.loggedBy === userFilter);
 
   const days: DayPoint[] = [];
-  let running = 0;
+  let running = openingBalance;
   for (let d = 1; d <= shape.daysInMonth; d++) {
     const income = monthIncomes
       .filter((i) => dayOf(i.date) === d)
@@ -139,6 +229,7 @@ export function buildMonthAnalytics(
   const totalIncome = monthIncomes.reduce((s, i) => s + i.amount, 0);
   const totalSpend = monthExpenses.reduce((s, e) => s + e.amount, 0);
   const net = totalIncome - totalSpend;
+  const balance = openingBalance + net;
 
   /* Rows dated later in the month are real -- rent posted ahead, a card batch
      split across upcoming dates -- but they are not evidence of a daily rate.
@@ -159,8 +250,8 @@ export function buildMonthAnalytics(
   const pacedBudget = totalIncome * shape.progress;
   const paceRatio = pacedBudget > 0 ? spendToDate / pacedBudget : 0;
   const projectedSpend = totalSpend + avgDailySpend * (shape.daysInMonth - bookedThrough);
-  const projectedBalance = totalIncome - projectedSpend;
-  const runwayDays = avgDailySpend > 0 ? net / avgDailySpend : Infinity;
+  const projectedBalance = openingBalance + totalIncome - projectedSpend;
+  const runwayDays = avgDailySpend > 0 ? balance / avgDailySpend : Infinity;
 
   let biggestSpend: MonthAnalytics['biggestSpend'] = null;
   for (const e of monthExpenses) {
@@ -174,6 +265,12 @@ export function buildMonthAnalytics(
 
   return {
     shape,
+    openingBalance,
+    carriedIn:
+      openingBalance +
+      monthIncomes.filter((i) => i.source === 'carryover').reduce((s, i) => s + i.amount, 0),
+    chained: link !== undefined,
+    balance,
     days,
     elapsedDays,
     bookedDays,
@@ -274,6 +371,8 @@ export interface MonthBar {
   income: number;
   spend: number;
   net: number;
+  /** Cash on hand at month end, when the month is on the balance chain. */
+  closing?: number;
 }
 
 /** Last `count` months (oldest first), whether or not they hold rows. */
@@ -286,6 +385,7 @@ export function buildMonthHistory(
 ): MonthBar[] {
   const [y, m] = selectedMonth.split('-').map(Number);
   const bars: MonthBar[] = [];
+  const chain = userFilter === 'all' ? buildBalanceChain(incomes, expenses, selectedMonth) : null;
 
   for (let back = count - 1; back >= 0; back--) {
     const d = new Date(y, m - 1 - back, 1);
@@ -303,6 +403,7 @@ export function buildMonthHistory(
       income,
       spend,
       net: income - spend,
+      closing: chain?.get(key)?.closing,
     });
   }
   return bars;

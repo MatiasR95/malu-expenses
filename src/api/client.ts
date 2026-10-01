@@ -15,6 +15,31 @@ if (!API_URL) {
   API_URL = localStorage.getItem('couple_finance_api_url') || '';
 }
 
+const TAB_MONTHS: Record<string, number> = {
+  enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6,
+  julio: 7, agosto: 8, septiembre: 9, octubre: 10, noviembre: 11, diciembre: 12,
+};
+
+/**
+ * Undo day/month swaps on rows imported from the gym sheet.
+ *
+ * That sheet parses dates month-first, so a day-first "10/08" (10 August)
+ * comes through as 8 October: an August payment dated 2026-10-08. It leaked into October and made a brand-new month look like it
+ * already had income. The tab the row came from ("Agosto 2026") says which
+ * month it belongs to; when the stored date is off-month but swapping day and
+ * month lands on it, the swap is the typo.
+ */
+export function fixImportedDate(income: Income): Income {
+  const m = /^gym-import-([a-z]+)(\d{4})-/i.exec(income.id);
+  const tabMonth = m && TAB_MONTHS[m[1].toLowerCase()];
+  if (!tabMonth) return income;
+
+  const [y, mo, d] = income.date.slice(0, 10).split('-').map(Number);
+  if (mo === tabMonth || d !== tabMonth) return income;
+  const date = `${y}-${String(d).padStart(2, '0')}-${String(mo).padStart(2, '0')}`;
+  return { ...income, date };
+}
+
 interface FetchDataResponse {
   expenses: Expense[];
   incomes: Income[];
@@ -32,7 +57,8 @@ export const FinanceAPI = {
       const res = await fetch(API_URL);
       const json = await res.json();
       if (json.status === 'success') {
-        return json.data as FetchDataResponse;
+        const data = json.data as FetchDataResponse;
+        return { ...data, incomes: data.incomes.map(fixImportedDate) };
       }
       console.error('API Error:', json.message);
       return null;
